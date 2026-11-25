@@ -1,6 +1,6 @@
 # 麦浪 studio for Apple Silicon
 
-This tree contains the build inputs for `openreel-mac-3` from release revision `cf287f14138bfcc43510dc09273bc0e0756da95c`.
+This tree contains the build inputs for `openreel-mac-4` from release revision `1370298fdf0982392cee3053871954f0b8698176`.
 The desktop project derives from [PI-Desktop](https://github.com/vastsa/PI-Desktop).
 Its repository license is in [LICENSE](LICENSE) with the incorporated [GNU GPL v3](COPYING.GPLv3).
 Bundled third-party components retain their own notices and terms.
@@ -14,7 +14,7 @@ use the pnpm version pinned in `package.json`.
 pnpm install --frozen-lockfile
 mkdir -p .cache/private-mac
 cp third-party/ffmpeg-7.1.5.tar.xz .cache/private-mac/
-pnpm run dist:private:mac 3
+pnpm run dist:private:mac 4
 ```
 
 The build verifies the FFmpeg source hash, builds the CLI tools with the flags in

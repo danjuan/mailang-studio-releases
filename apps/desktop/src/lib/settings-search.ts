@@ -425,7 +425,6 @@ export const SETTINGS_NAV: SettingsNavEntry[] = [
       "settings.application",
       "settings.startupGuide",
       "settings.logs",
-      "settings.feedback",
       "updates.title",
       "updates.preferenceTitle",
       "settings.developer",

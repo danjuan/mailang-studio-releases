@@ -76,6 +76,7 @@ export const IPC = {
     storageClearCache: "pi-desktop/storage/clearCache",
     storageRemoveBackup: "pi-desktop/storage/removeBackup",
     appGetVersion: "pi-desktop/app/getVersion",
+    /** @deprecated Retained for old clients. Always returns UNSUPPORTED. */
     appOpenFeedback: "pi-desktop/app/openFeedback",
     appHealth: "pi-desktop/app/health",
     appGetOnboarding: "pi-desktop/app/getOnboarding",

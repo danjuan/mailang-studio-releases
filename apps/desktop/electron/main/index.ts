@@ -987,7 +987,6 @@ function registerIpc() {
     /** Same delivery path as the application menu, so readiness and focus are
      * handled once instead of by the launcher IPC. */
     openPluginMarket: () => dispatchApplicationMenuCommand("openPluginMarket"),
-    safeOpenExternal,
     updater,
     dataDir,
     activeTurns,
