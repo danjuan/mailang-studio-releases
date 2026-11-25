@@ -1,0 +1,82 @@
+--- a/README.md
++++ b/README.md
+@@ -48,7 +48,7 @@
+ integration candidate. A separate development-plugin run does not validate
+ the shipped bundle.
+ 
+-在 PI-Desktop 的**右侧工作面板**里浏览、查看并编辑当前项目的文件：完整目录树（图标随文件类型变化）、左右分栏（左侧文件列表可整块收起）、代码高亮编辑与保存、PDF 预览、图片与音视频查看、CSV/JSON 结构化查看、在项目组注册了多个本地文件夹时切换当前浏览的那个 folder（按项目记住），以及新建、重命名/移动、右键复制路径、**通过…打开**（二级子菜单列出这台机器上真的装了的程序，按文件类型过滤，选中即用那个程序打开）、按文件名搜索、**git 联动**（文件列表里直接标出哪些文件被修改、哪些是新增，并能逐行查看它相对上次提交的具体变更）、**文件监听**（文件在编辑器之外被改动会自动重新读取并刷新列表）；宿主还可以让视图直接打开某个文件——包括它自己选定的项目外路径（会话临时目录 / 附件）。
++在 麦浪 studio 的**右侧工作面板**里浏览、查看并编辑当前项目的文件：完整目录树（图标随文件类型变化）、左右分栏（左侧文件列表可整块收起）、代码高亮编辑与保存、PDF 预览、图片与音视频查看、CSV/JSON 结构化查看、在项目组注册了多个本地文件夹时切换当前浏览的那个 folder（按项目记住），以及新建、重命名/移动、右键复制路径、**通过…打开**（二级子菜单列出这台机器上真的装了的程序，按文件类型过滤，选中即用那个程序打开）、按文件名搜索、**git 联动**（文件列表里直接标出哪些文件被修改、哪些是新增，并能逐行查看它相对上次提交的具体变更）、**文件监听**（文件在编辑器之外被改动会自动重新读取并刷新列表）；宿主还可以让视图直接打开某个文件——包括它自己选定的项目外路径（会话临时目录 / 附件）。
+ 
+ ## 功能
+ 
+@@ -83,7 +83,7 @@
+   顶部有一个「自动刷新」开关可以随时关掉（运行时不支持递归监听时整颗按钮禁用并说明原因），**两个手动刷新按钮原样保留**——监听只是省掉那一下点击，从来不是它的替代品。换项目 / 换文件夹时监听跟着换，插件卸载时一并关闭。
+ - **编辑 / 预览 / 变更 是一组互斥页签**：打开有 git 变化的文件时，工具栏是同一个 tablist——「变更」与「编辑 / 预览」同组，因此从任何一侧都能点进去、再点回来，内容区**一次只会有一种视图**（0.8.0 时「变更」是 tablist 之外的独立开关，于是「预览 + 变更」能同时成立，两个整块高的视图会压在一起；0.8.1 把判定收进 `lib/pane.ts` 的单值 `contentKind()` 后不可能再发生）。变更页签只对文本文件给出。
+ - **忽略规则**：项目里有 `.gitignore` / `.ignore` 就按规则隐藏条目（可用工具栏的眼睛按钮切回显示）；**一个规则文件都没有时，目录树展示全部条目**。
+-- **跟随宿主外观**：亮/暗配色与界面语言（中文 / English）跟随 PI-Desktop 主体，编辑器与预览的高亮配色一并跟随。
++- **跟随宿主外观**：亮/暗配色与界面语言（中文 / English）跟随 麦浪 studio 主体，编辑器与预览的高亮配色一并跟随。
+ 
+ ## 源码选区加入对话
+ 
+@@ -103,10 +103,10 @@
+ 
+ ## 安装
+ 
+-在 PI-Desktop 的 Plugins 页面：
++在 麦浪 studio 的 Plugins 页面：
+ 
+ 1. **Load development plugin** → 选择本目录；或
+-2. 用 `.piplug` 安装包走 **Install plugin package**。安装更新后关闭并重新打开整个「文件管理器」页签，或重启 PI-Desktop，让视图载入新代码；PDF 文件的刷新按钮只重读文档。
++2. 用 `.piplug` 安装包走 **Install plugin package**。安装更新后关闭并重新打开整个「文件管理器」页签，或重启 麦浪 studio，让视图载入新代码；PDF 文件的刷新按钮只重读文档。
+ 
+ 装好后打开一个项目，在**右侧工作面板头部的切换菜单 → “Plugin views / 插件视图”** 分组里点击「文件管理器」。
+ 
+@@ -152,7 +152,7 @@
+ 
+ 完成构建与桌面检查后，在仓库根目录运行 `node scripts/prepare-package.mjs`。脚本生成 `dist/runtime`，只复制 `manifest.json`、`main.js`、生产 `views/`（含第三方许可）、README 与 CHANGELOG；源码、测试夹具、QA 脚本和依赖均不进入运行包。
+ 
+-再对 **`dist/runtime`** 使用 PI-Desktop 官方 `PluginCheck` 和 `PluginPack`。开发加载仍可选择仓库根目录；正式安装包使用准备好的运行目录，避免将整个测试目录打进包内。
++再对 **`dist/runtime`** 使用 麦浪 studio 官方 `PluginCheck` 和 `PluginPack`。开发加载仍可选择仓库根目录；正式安装包使用准备好的运行目录，避免将整个测试目录打进包内。
+ 
+ ### 校验
+ 
+@@ -194,7 +194,7 @@
+ - **`verify-context-menu.mjs`**：断言右键菜单的分组、顺序、适用文件类型与内置浏览器入口，不让新增操作静默挤乱已有动作。
+ - **`verify-theme.mjs`**：断言 CodeMirror 查找 / 替换面板与「跳转到行」对话框的输入框、占位文本与按钮显式使用插件主题变量，并且**连构建产物 `views/assets/index.js` 一起校验**——防止暗色外观退回白底白字的默认样式，也防止改了 CSS 忘了 `pnpm build`。
+ 
+-PDF 浏览器验收应使用生产构建和离线 `file://` 页面：长文档连续滚动与页面底部可达、页码同步、三种布局与混合横竖页适应宽度、在封面 / 末页的单与双页交界处往返滚动和拖动后缩放不变且渲染事件停止、惰性加载新尺寸后比例稳定、缩略图与嵌套 / 命名书签跳转、无目录提示、页码标签与 Info / XMP 元数据、真实鼠标文字选择、旋转页与特殊页面单位、中文字体映射与扫描件 / CMYK 解码、360px 窄面板、主题与语言、快速切页后缩放、快速切换文件，以及加载 / Worker 失败后的恢复。关闭 PDF 后确认 Worker 和 Blob URL 均释放；浏览器模拟宿主桥通过后，仍需在 PI-Desktop 安装包中检查实际面板交互。
++PDF 浏览器验收应使用生产构建和离线 `file://` 页面：长文档连续滚动与页面底部可达、页码同步、三种布局与混合横竖页适应宽度、在封面 / 末页的单与双页交界处往返滚动和拖动后缩放不变且渲染事件停止、惰性加载新尺寸后比例稳定、缩略图与嵌套 / 命名书签跳转、无目录提示、页码标签与 Info / XMP 元数据、真实鼠标文字选择、旋转页与特殊页面单位、中文字体映射与扫描件 / CMYK 解码、360px 窄面板、主题与语言、快速切页后缩放、快速切换文件，以及加载 / Worker 失败后的恢复。关闭 PDF 后确认 Worker 和 Blob URL 均释放；浏览器模拟宿主桥通过后，仍需在 麦浪 studio 安装包中检查实际面板交互。
+ 
+ 冒烟测试（在仓库根目录运行）：
+ 
+--- a/views-src/src/i18n.ts
++++ b/views-src/src/i18n.ts
+@@ -233,7 +233,7 @@
+     errNotFound: "That path no longer exists.",
+     errIsDirectory: "That path is a directory; folders are browsed in the tree, and only inside the project.",
+     errUnsupported: "This host does not support that operation.",
+-    errNoBridge: "This page must be opened inside PI-Desktop.",
++    errNoBridge: "This page must be opened inside 麦浪 studio.",
+     changes: "Changes",
+     viewChanges: "View changes",
+     backToEditor: "Back to the file",
+@@ -487,7 +487,7 @@
+     errNotFound: "该路径已不存在。",
+     errIsDirectory: "该路径是一个目录；文件夹在目录树里浏览，且只能在项目内。",
+     errUnsupported: "当前宿主不支持该操作。",
+-    errNoBridge: "本页面需要在 PI-Desktop 中打开。",
++    errNoBridge: "本页面需要在 麦浪 studio 中打开。",
+     changes: "变更",
+     viewChanges: "查看变更",
+     backToEditor: "回到文件",
+--- a/views-src/src/lib/bridge.ts
++++ b/views-src/src/lib/bridge.ts
+@@ -23,7 +23,7 @@
+ export async function invoke<T>(channel: string, payload?: unknown): Promise<T> {
+   const bridge = window.pluginBridge;
+   if (!bridge?.invoke) {
+-    throw Object.assign(new Error("plugin bridge unavailable (open this view inside PI-Desktop)"), {
++    throw Object.assign(new Error("plugin bridge unavailable (open this view inside 麦浪 studio)"), {
+       code: "NO_BRIDGE",
+     });
+   }

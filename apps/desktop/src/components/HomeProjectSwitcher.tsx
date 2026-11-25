@@ -1,0 +1,456 @@
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
+import { useTranslation } from "react-i18next";
+import { allowInsecureUserEndpoints } from "@pi-desktop/shared";
+import { parseGitCloneUrl } from "../lib/git-clone-url";
+import {
+  filterSwitcherProjects,
+  listSwitcherProjects,
+  normalizeProjectPath,
+} from "../lib/sidebar-preferences";
+import { useAppStore } from "../stores/app-store";
+import {
+  IconBranch,
+  IconChat,
+  IconCheck,
+  IconChevronLeft,
+  IconFolder,
+  IconNewProject,
+  IconSearch,
+} from "./icons";
+import { AnchoredMenu } from "./settings/AnchoredMenu";
+import { cx } from "./ui";
+import { useRemoteProjects } from "../hooks/use-remote-projects";
+import { remoteProjectKey, type RemoteProjectEntry } from "../lib/remote-project-catalog";
+import { isRemoteSession } from "../lib/remote-session-safety";
+
+type ProjectMenuEntry = {
+  key: string;
+  name: string;
+  title: string;
+  localPath?: string;
+  remoteProject?: RemoteProjectEntry;
+  /** The temporary group: a conversation that belongs to no project. */
+  temporary?: true;
+};
+
+const TEMPORARY_KEY = "temporary";
+
+/**
+ * The empty home's project picker: the underlined word in the title. In a
+ * project it is the project name; in a temporary conversation it is the scope
+ * word ("temporarily"). Both menus list "Temporary chat" first so the next task
+ * can leave or join a project from the same place (#2455).
+ */
+export function HomeProjectSwitcher({
+  name,
+  path,
+  temporary = false,
+}: {
+  name: string;
+  path?: string | null;
+  /** The trigger is the temporary home's scope word rather than a project. */
+  temporary?: boolean;
+}) {
+  const { t } = useTranslation();
+  const openProjectPaths = useAppStore((state) => state.openProjectPaths);
+  const openProjects = useAppStore((state) => state.openProjects);
+  const workspace = useAppStore((state) => state.workspace);
+  const projectMeta = useAppStore((state) => state.projectMeta);
+  const projectSort = useAppStore((state) => state.projectSort);
+  const activeProjectPath = useAppStore((state) => state.activeProjectPath);
+  const activeSession = useAppStore((state) => state.sessions.find((session) => session.id === state.activeSessionId));
+  const newSession = useAppStore((state) => state.newSession);
+  const openProject = useAppStore((state) => state.openProject);
+  const cloneProject = useAppStore((state) => state.cloneProject);
+  const showToast = useAppStore((state) => state.showToast);
+  const settings = useAppStore((state) => state.settings);
+
+  const [open, setOpen] = useState(false);
+  const [view, setView] = useState<"list" | "clone">("list");
+  const [query, setQuery] = useState("");
+  const [cloneUrl, setCloneUrl] = useState("");
+  const [highlight, setHighlight] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const busyRef = useRef(false);
+  const remoteCatalog = useRemoteProjects(open && view === "list");
+
+  const projects = useMemo(
+    () =>
+      listSwitcherProjects({
+        openProjectPaths,
+        openProjects,
+        workspace,
+        projectMeta,
+        projectSort,
+      }),
+    [openProjectPaths, openProjects, workspace, projectMeta, projectSort],
+  );
+  const temporaryLabel = t("project.noProject");
+  const visible = useMemo(
+    (): ProjectMenuEntry[] => [
+      ...(temporaryLabel.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())
+        ? [{ key: TEMPORARY_KEY, name: temporaryLabel, title: t("project.noProjectHint"), temporary: true as const }]
+        : []),
+      ...filterSwitcherProjects(projects, query).map((project) => ({ key: project.key, name: project.name,
+        title: openProjects.find((item) => item.path === project.path)?.remote?.path
+          ?? (workspace?.path === project.path ? workspace.remote?.path : undefined)
+          ?? project.path, localPath: project.path })),
+      ...remoteCatalog.projects.filter((project) => `${project.label} ${project.hostLabel}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()))
+        .map((project) => ({ key: `remote:${project.key}`, name: `${project.label} · ${project.hostLabel}`,
+          title: `${project.label} · ${project.hostLabel}`, remoteProject: project })),
+    ],
+    [projects, query, remoteCatalog.projects, openProjects, workspace, temporaryLabel, t],
+  );
+  const activeKey = isRemoteSession(activeSession) && activeSession?.remoteHostKey && activeSession.remoteProjectId
+    ? `remote:${remoteProjectKey(activeSession.remoteHostKey, activeSession.remoteProjectId)}`
+    : normalizeProjectPath(activeProjectPath ?? path) || (temporary ? TEMPORARY_KEY : "");
+  const cloneTarget = parseGitCloneUrl(cloneUrl, {
+    allowInsecureHttp: allowInsecureUserEndpoints(settings),
+  });
+
+  const close = useCallback(() => {
+    setOpen(false);
+    setQuery("");
+    setView("list");
+    setCloneUrl("");
+  }, []);
+
+  const reportError = useCallback(
+    (error: unknown) => {
+      showToast(error instanceof Error ? error.message : String(error), {
+        variant: "error",
+      });
+    },
+    [showToast],
+  );
+
+  const selectProject = useCallback(
+    async (nextPath: string) => {
+      if (busy || busyRef.current) return;
+      const nextKey = normalizeProjectPath(nextPath);
+      close();
+      if (!nextKey || nextKey === activeKey) return;
+      busyRef.current = true;
+      setBusy(true);
+      try {
+        await newSession({ projectPath: nextPath });
+      } catch (error) {
+        reportError(error);
+      } finally {
+        busyRef.current = false;
+        setBusy(false);
+      }
+    },
+    [activeKey, busy, close, newSession, reportError],
+  );
+
+  const selectTemporary = async () => {
+    if (busy || busyRef.current) return;
+    close();
+    if (activeKey === TEMPORARY_KEY && activeSession) return;
+    busyRef.current = true;
+    setBusy(true);
+    try {
+      await newSession({ projectPath: null });
+    } catch (error) {
+      reportError(error);
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
+  };
+
+  const selectMenuProject = async (project: ProjectMenuEntry) => {
+    if (project.temporary) return selectTemporary();
+    if (project.localPath) return selectProject(project.localPath);
+    if (busy || busyRef.current || !project.remoteProject?.connected) return;
+    busyRef.current = true; setBusy(true);
+    try { await newSession({ remoteProject: project.remoteProject }); close(); }
+    catch (error) { reportError(error); }
+    finally { busyRef.current = false; setBusy(false); }
+  };
+
+  const startClone = useCallback(async () => {
+    if (busy || busyRef.current || !cloneTarget) return;
+    busyRef.current = true;
+    setBusy(true);
+    try {
+      const previous = normalizeProjectPath(
+        useAppStore.getState().workspace?.path,
+      );
+      const workspace = await cloneProject(cloneTarget.url);
+      if (!workspace?.path) return;
+      close();
+      const nextKey = normalizeProjectPath(workspace.path);
+      if (nextKey && nextKey !== previous) {
+        await newSession({ projectPath: workspace.path });
+      }
+    } catch (error) {
+      reportError(error);
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
+  }, [busy, cloneProject, cloneTarget, close, newSession, reportError]);
+
+  const pickFolder = useCallback(async () => {
+    if (busy || busyRef.current) return;
+    close();
+    busyRef.current = true;
+    setBusy(true);
+    try {
+      const previous = normalizeProjectPath(
+        useAppStore.getState().workspace?.path,
+      );
+      await openProject();
+      const nextPath = useAppStore.getState().workspace?.path;
+      const nextKey = normalizeProjectPath(nextPath);
+      if (nextPath && nextKey && nextKey !== previous) {
+        await newSession({ projectPath: nextPath });
+      }
+    } catch (error) {
+      reportError(error);
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
+  }, [busy, close, newSession, openProject, reportError]);
+
+  useEffect(() => {
+    if (!open) return;
+    const current = visible.findIndex((project) => project.key === activeKey);
+    setHighlight(current >= 0 ? current : 0);
+  }, [activeKey, open, visible]);
+
+  useEffect(() => {
+    if (!open || view !== "list") return;
+    document
+      .querySelector<HTMLElement>(`[data-switcher-index="${highlight}"]`)
+      ?.scrollIntoView({ block: "nearest" });
+  }, [highlight, open, view]);
+
+  const moveHighlight = (delta: number) => {
+    if (visible.length === 0) return;
+    setHighlight(
+      (current) => (current + delta + visible.length) % visible.length,
+    );
+  };
+
+  const onMenuKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (view === "clone") return;
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      moveHighlight(1);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      moveHighlight(-1);
+    } else if (event.key === "Enter") {
+      const target = visible[highlight];
+      if (!target) return;
+      event.preventDefault();
+      void selectMenuProject(target);
+    }
+  };
+
+  return (
+    <AnchoredMenu
+      className="home-project-switcher"
+      open={open}
+      onClose={close}
+      menuClassName="home-project-switcher-menu"
+      label={t("project.switchProject")}
+      role="menu"
+      align="start"
+      side="bottom"
+      initialFocus="input"
+      onMenuKeyDown={onMenuKeyDown}
+      trigger={(ref) => {
+        const toggle = () => {
+          if (open) {
+            close();
+            return;
+          }
+          setQuery("");
+          setView("list");
+          setCloneUrl("");
+          setOpen(true);
+        };
+        return (
+          <button
+            ref={ref}
+            type="button"
+            className="project-underline"
+            data-testid="home-project-switcher"
+            aria-haspopup="menu"
+            aria-expanded={open}
+            aria-label={`${t("project.switchProject")}: ${temporary ? t("project.noProject") : name}`}
+            title={temporary ? t("project.noProjectHint") : (workspace?.path === path ? workspace?.remote?.path : undefined) || path || t("project.switchProject")}
+            disabled={busy}
+            onClick={toggle}
+          >
+            <span className="project-underline-name">{name}</span>
+          </button>
+        );
+      }}
+    >
+      {view === "clone" ? (
+        <div className="home-project-switcher-clone">
+          <button
+            type="button"
+            className="home-project-switcher-item"
+            disabled={busy}
+            onClick={() => setView("list")}
+          >
+            <IconChevronLeft size={14} aria-hidden />
+            <span className="home-project-switcher-item-name">
+              {t("project.clone")}
+            </span>
+          </button>
+          <label className="home-project-switcher-search">
+            <IconBranch size={13} aria-hidden />
+            <span className="sr-only">{t("project.cloneUrlPlaceholder")}</span>
+            <input
+              type="text"
+              value={cloneUrl}
+              placeholder={t("project.cloneUrlPlaceholder")}
+              aria-label={t("project.cloneUrlPlaceholder")}
+              spellCheck={false}
+              autoCorrect="off"
+              autoCapitalize="off"
+              autoComplete="off"
+              disabled={busy}
+              onChange={(event) => setCloneUrl(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  void startClone();
+                }
+              }}
+            />
+          </label>
+          <p className="home-project-switcher-clone-hint">
+            {cloneTarget
+              ? t("project.cloneDestHint", { name: cloneTarget.name })
+              : t("project.cloneUrlHint")}
+          </p>
+          <button
+            type="button"
+            className="home-project-switcher-clone-submit"
+            disabled={busy || !cloneTarget}
+            onClick={() => void startClone()}
+          >
+            {busy ? t("project.cloning") : t("project.cloneAction")}
+          </button>
+        </div>
+      ) : (
+        <>
+          <label className="home-project-switcher-search">
+            <IconSearch size={13} aria-hidden />
+            <span className="sr-only">{t("project.searchPlaceholder")}</span>
+            <input
+              type="text"
+              value={query}
+              placeholder={t("project.searchPlaceholder")}
+              aria-label={t("project.searchPlaceholder")}
+              aria-controls="home-project-switcher-list"
+              aria-activedescendant={
+                visible[highlight]
+                  ? `home-project-switcher-option-${highlight}`
+                  : undefined
+              }
+              spellCheck={false}
+              autoCorrect="off"
+              autoCapitalize="off"
+              autoComplete="off"
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </label>
+          <div
+            className="home-project-switcher-list"
+            id="home-project-switcher-list"
+            role="none"
+          >
+            {visible.length === 0 ? (
+              <div className="home-project-switcher-empty">
+                {t("project.noSearchResults")}
+              </div>
+            ) : (
+              visible.map((project, index) => {
+                const current = project.key === activeKey;
+                return (
+                  <button
+                    key={project.key}
+                    id={`home-project-switcher-option-${index}`}
+                    type="button"
+                    role="menuitemradio"
+                    tabIndex={-1}
+                    aria-checked={current}
+                    data-switcher-index={index}
+                    title={project.title}
+                    className={cx(
+                      "home-project-switcher-item",
+                      current && "is-current",
+                      highlight === index && "is-active",
+                    )}
+                    disabled={busy || project.remoteProject?.connected === false}
+                    onMouseEnter={() => setHighlight(index)}
+                    onClick={() => void selectMenuProject(project)}
+                  >
+                    {project.temporary ? <IconChat size={14} aria-hidden /> : <IconFolder size={14} aria-hidden />}
+                    <span className="home-project-switcher-item-name">
+                      {project.name}
+                    </span>
+                    {current ? (
+                      <IconCheck
+                        size={14}
+                        className="home-project-switcher-check"
+                        aria-hidden
+                      />
+                    ) : null}
+                  </button>
+                );
+              })
+            )}
+          </div>
+          {remoteCatalog.busy && <p role="status">{t("remote:loading")}</p>}
+          {remoteCatalog.error && <p role="alert">{remoteCatalog.error}</p>}
+          <div className="home-project-switcher-divider" aria-hidden />
+          <button
+            type="button"
+            role="menuitem"
+            className="home-project-switcher-item"
+            disabled={busy}
+            onClick={() => {
+              setCloneUrl("");
+              setView("clone");
+            }}
+          >
+            <IconBranch size={14} aria-hidden />
+            <span className="home-project-switcher-item-name">
+              {t("project.clone")}
+            </span>
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className="home-project-switcher-item"
+            disabled={busy}
+            onClick={() => void pickFolder()}
+          >
+            <IconNewProject size={14} aria-hidden />
+            <span className="home-project-switcher-item-name">
+              {t("project.open")}
+            </span>
+          </button>
+        </>
+      )}
+    </AnchoredMenu>
+  );
+}

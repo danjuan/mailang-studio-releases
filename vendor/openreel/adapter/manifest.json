@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "id": "local.openreel-proof",
+  "name": "OpenReel Video",
+  "description": "Edit independent 麦浪 studio conversation drafts with the local OpenReel video editor.",
+  "i18n": {
+    "zh-CN": {
+      "name": "OpenReel 视频剪辑",
+      "description": "在 麦浪 studio 右侧预览和编辑各个会话的本地视频草稿。"
+    }
+  },
+  "version": "0.2.26",
+  "main": "main.js",
+  "license": "MIT",
+  "engines": {
+    "piDesktop": ">=0.23.0-beta.2"
+  },
+  "activationEvents": [
+    "onStartup"
+  ],
+  "permissions": [
+    "ui.view",
+    "fs.read",
+    "fs.write",
+    "agent.tool.register"
+  ],
+  "fs": {
+    "read": {
+      "root": "workspace",
+      "scope": [
+        "**/*.mp4",
+        "**/*.MP4",
+        "video-edits/**",
+        "**/*.mp3",
+        "**/*.MP3",
+        "**/*.wav",
+        "**/*.WAV",
+        "**/*.png",
+        "**/*.PNG",
+        "**/*.jpg",
+        "**/*.JPG",
+        "**/*.jpeg",
+        "**/*.JPEG"
+      ]
+    },
+    "write": {
+      "root": "workspace",
+      "scope": [
+        "video-edits/**"
+      ]
+    }
+  },
+  "contributes": {
+    "views": [
+      {
+        "id": "editor",
+        "title": {
+          "en": "Video Editing",
+          "zh-CN": "视频剪辑"
+        },
+        "icon": "image",
+        "entry": "views/index.html"
+      }
+    ]
+  }
+}

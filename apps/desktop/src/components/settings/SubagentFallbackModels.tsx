@@ -1,0 +1,86 @@
+import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
+import { imageGenerationBindings, type ProviderPublic } from "@pi-desktop/shared";
+import { useAppStore } from "../../stores/app-store";
+import { Button, Field } from "../ui";
+import { SubagentModelPicker } from "./SubagentModelPicker";
+import {
+  groupSubagentModelChoices,
+  subagentModelDisplay,
+  subagentModelSelectValue,
+  type SubagentModelChoice,
+} from "./subagent-models";
+
+/** Ordered alternatives use the same configured-model catalog as the primary. */
+export function SubagentFallbackModels({ primary, values, choices, providers, onChange }: {
+  primary: string;
+  values: string[];
+  choices: SubagentModelChoice[];
+  providers: readonly ProviderPublic[];
+  onChange: (values: string[]) => void;
+}) {
+  const { t } = useTranslation();
+  // Read the settings slices and the discovered catalog through reactive
+  // subscriptions: getState() here kept stale metadata when the catalog
+  // slice swapped providerModels without re-rendering this component.
+  const settings = useAppStore((state) => state.settings);
+  const providerModels = useAppStore((state) => state.providerModels);
+  const images = useMemo(
+    () => imageGenerationBindings(
+      settings?.imageGenerationModels,
+      settings?.imageGeneration,
+    ),
+    [settings?.imageGenerationModels, settings?.imageGeneration],
+  );
+  const selected = new Set([primary, ...values].map((pin) => subagentModelSelectValue(pin, choices)));
+  const available = choices.filter((choice) => !selected.has(choice.value));
+  const rows = values.map((pin) => {
+    const choice = subagentModelDisplay(pin, providers, images, providerModels);
+    return { choice, text: choice ? `${choice.providerName}/${choice.modelId}` : pin };
+  });
+  const move = (index: number, delta: number) => {
+    const next = [...values];
+    [next[index], next[index + delta]] = [next[index + delta], next[index]];
+    onChange(next);
+  };
+  return (
+    <Field label={t("extensions.subagents.fallbackModels")} hint={t("extensions.subagents.fallbackModelsHint")}>
+      <ol className="space-y-2">
+        {values.map((pin, index) => {
+          const { choice, text } = rows[index];
+          const duplicate = rows.some((other, position) => position !== index && other.text === text);
+          const sameProvider = choice && rows.some((other, position) =>
+            position !== index && other.text === text && other.choice?.providerId === choice.providerId);
+          const identity = duplicate
+            ? `${text} (${!choice || sameProvider ? `${index + 1}: ${pin}` : choice.providerId})`
+            : text;
+          const status = choice?.status ?? "unavailable";
+          const label = status === "available" ? identity : `${identity} (${t(
+            status === "disabled" ? "settings.providerDisabledBadge" : "settings.catalogSourceEmpty",
+          )})`;
+          return (
+            <li key={`${index}:${pin}`} className="flex items-center gap-2">
+              <span className="min-w-0 flex-1 break-all text-sm">{index + 1}. {label}</span>
+              <Button size="sm" variant="secondary" disabled={index === 0} onClick={() => move(index, -1)}
+                aria-label={t("extensions.subagents.fallbackMoveUp", { model: label })}>↑</Button>
+              <Button size="sm" variant="secondary" disabled={index === values.length - 1} onClick={() => move(index, 1)}
+                aria-label={t("extensions.subagents.fallbackMoveDown", { model: label })}>↓</Button>
+              <Button size="sm" variant="secondary" onClick={() => onChange(values.filter((_, position) => position !== index))}
+                aria-label={t("extensions.subagents.fallbackRemove", { model: label })}>×</Button>
+            </li>
+          );
+        })}
+      </ol>
+      <SubagentModelPicker
+        value=""
+        groups={groupSubagentModelChoices(available)}
+        orphanPin={null}
+        allowInherit={false}
+        disabled={available.length === 0}
+        label={t("extensions.subagents.fallbackAdd")}
+        emptyLabel={t("extensions.subagents.fallbackAdd")}
+        onChange={(pin) => onChange([...values, pin])}
+      />
+    </Field>
+  );
+}

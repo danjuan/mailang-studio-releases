@@ -1,0 +1,544 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="pi-plugin-chrome" content="v2" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src pi-plugin-media: data:; media-src pi-plugin-media: blob:; form-action 'none'; base-uri 'none'" />
+    <title>Media Generation</title>
+    <link rel="stylesheet" href="./panel.css" />
+    <script src="../long-video-plan.js" defer></script>
+    <script src="./strings.js" defer></script>
+    <script src="./media-ui.js" defer></script>
+    <script src="./local-media-drop.js" defer></script>
+    <script src="./library-catalog.js" defer></script>
+    <script src="./library.js" defer></script>
+    <script src="./video-edit-region.js" defer></script>
+    <script src="./video-remake-ui.js" defer></script>
+    <script src="./prompt-references.js" defer></script>
+    <script src="./references-ui.js" defer></script>
+    <script src="./media-preview.js" defer></script>
+    <script src="./keyframe-reorder.js" defer></script>
+    <script src="./video-workflow-ui.js" defer></script>
+    <script src="./creative-starter-lighthouse.js" defer></script>
+    <script src="./creative-starters.js" defer></script>
+    <script src="./panel.js" defer></script>
+  </head>
+  <body>
+    <main>
+      <p id="panel-message" class="empty" role="status" data-text="loading">Loading…</p>
+      <div id="panel-content" hidden>
+        <header class="workbench-header">
+          <div class="content-width header-row">
+            <h1 data-text="title">Media Generation</h1>
+            <div class="header-actions">
+              <button id="open-library" class="secondary compact" type="button" aria-controls="library-page" data-text="library">Assets &amp; subjects</button>
+              <button id="open-settings" class="secondary compact key-toggle" type="button" aria-haspopup="dialog">
+                <span class="key-indicator" aria-hidden="true"></span><span>API Key</span>
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <div class="history-pane">
+          <section id="session-creations" class="history-scroll" data-label="history" tabindex="-1">
+            <div class="content-width history-content">
+              <p id="history-message" class="empty" role="status" hidden></p>
+              <ol id="results" class="results"></ol>
+              <button id="load-more" class="secondary more" type="button" hidden data-text="loadMore">Load more</button>
+            </div>
+          </section>
+          <button id="history-recent" class="secondary history-recent" type="button" aria-controls="session-creations" hidden>
+            <span class="history-recent-icon" aria-hidden="true"></span>
+            <span data-text="latestCreations">Latest creations</span>
+          </button>
+        </div>
+
+        <footer class="composer">
+          <div class="composer-intro">
+            <h2 id="empty-heading" class="empty-heading" hidden data-text="startCreating">Create an image or video</h2>
+            <div id="creative-starters" class="creative-starters" role="group" aria-labelledby="creative-starters-label" hidden>
+              <p id="creative-starters-label" class="creative-starters-label" data-text="tryStarter">Try an example</p>
+              <div class="creative-starter-options">
+                <button type="button" class="creative-starter" data-creative-starter="image" hidden>
+                  <span class="creative-starter-icon" aria-hidden="true"></span>
+                  <span>
+                    <span class="creative-starter-kind" data-text="imageKind">Image</span>
+                    <span class="creative-starter-title" data-text="starterImageTitle">Window still life</span>
+                  </span>
+                </button>
+                <button type="button" class="creative-starter" data-creative-starter="video" hidden>
+                  <img id="creative-starter-preview" class="creative-starter-preview" alt="" />
+                  <span>
+                    <span class="creative-starter-kind" data-text="videoKind">Video</span>
+                    <span class="creative-starter-title" data-text="starterVideoTitle">Coastal lighthouse</span>
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="composer-inner">
+            <form id="generate-form" data-label="title">
+              <div id="workflow-setup" class="workflow-setup" hidden>
+                <div id="reference-bindings" class="reference-bindings" role="group" data-label="attachedReferences" hidden></div>
+                <div id="reference-repairs" class="reference-bindings" hidden></div>
+                <p id="video-edit-summary" class="hint" role="status" hidden></p>
+                <p id="workflow-status" class="workflow-status" role="status" hidden></p>
+              </div>
+              <div class="composer-input">
+                <div id="remake-inputs" hidden>
+                  <div class="keyframe-media">
+                    <button id="remake-template" class="reference-add" type="button" aria-haspopup="dialog" aria-controls="remake-template-dialog" data-workflow-source="remake">
+                      <span class="reference-add-icon" aria-hidden="true">▹</span>
+                      <span id="remake-template-name" data-text="templateRole">Template</span>
+                    </button>
+                    <button id="remake-template-remove" class="keyframe-library" type="button" data-label="removeTemplate" hidden>×</button>
+                  </div>
+                  <button id="remake-material" class="reference-add" type="button">
+                    <span class="reference-add-icon" aria-hidden="true">+</span>
+                    <span data-text="remakeMaterial">Your media</span>
+                    <span id="remake-material-count" class="remake-material-count"></span>
+                  </button>
+                </div>
+                <div id="video-edit-source-controls" class="keyframe-media" hidden>
+                  <button id="video-edit-source-picker" class="reference-add" type="button" data-workflow-source="edit">
+                    <span class="reference-add-icon" aria-hidden="true">+</span>
+                    <span id="video-edit-source-label" data-text="attachSource">Choose video to edit</span>
+                  </button>
+                  <button id="video-edit-asset-picker" class="keyframe-library" type="button" data-label="fromLibrary" hidden>
+                    <span class="keyframe-library-icon" aria-hidden="true"></span>
+                  </button>
+                </div>
+                <div id="reference-rail" class="reference-rail" hidden>
+                  <button id="reference-add" class="reference-add" type="button">
+                    <span class="reference-add-icon" aria-hidden="true">+</span>
+                    <span id="reference-add-label" data-text="addReference">Add reference media</span>
+                    <span class="reference-add-compact" data-text="addReferenceShort" aria-hidden="true">Add</span>
+                  </button>
+                </div>
+                <div id="keyframe-navigation" class="keyframe-navigation" role="group" data-label="keyframeNavigation" hidden>
+                  <button id="keyframe-scroll-prev" class="composer-scroll keyframe-scroll" type="button"
+                    aria-controls="keyframe-sequence" data-label="previousKeyframes">
+                    <span class="chevron" aria-hidden="true"></span>
+                  </button>
+                  <button id="keyframe-scroll-next" class="composer-scroll keyframe-scroll" type="button"
+                    aria-controls="keyframe-sequence" data-label="nextKeyframes">
+                    <span class="chevron" aria-hidden="true"></span>
+                  </button>
+                </div>
+                <section id="keyframe-sequence" class="keyframe-sequence" tabindex="-1" hidden data-label="workflowMultiframe"></section>
+                <p id="keyframe-guide" class="keyframe-guide" data-text="keyframesRequired" hidden>Choose at least two keyframes.</p>
+                <div id="frame-slots" class="frame-slots" hidden>
+                  <div class="frame-slot" data-frame="first">
+                    <button type="button" class="frame-trigger" data-frame-trigger>
+                      <span class="frame-thumb" aria-hidden="true"></span>
+                      <span class="frame-role" data-text="firstFrame">First frame</span>
+                    </button>
+                    <button type="button" class="frame-menu-trigger" data-frame-menu popovertarget="first-frame-sources" aria-haspopup="menu">
+                      <span aria-hidden="true">···</span>
+                    </button>
+                    <div id="first-frame-sources" class="composer-menu" popover="auto" role="menu" data-label="firstFrame">
+                      <button type="button" role="menuitem" data-frame-local data-text="fromDevice">From device</button>
+                      <button type="button" role="menuitem" data-frame-library data-text="fromLibrary">From assets</button>
+                      <button type="button" role="menuitem" data-frame-subjects data-text="fromSubjects">From subjects</button>
+                      <button type="button" role="menuitem" data-frame-remove hidden data-text="remove">Remove</button>
+                    </div>
+                    <input type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" hidden />
+                  </div>
+                  <button type="button" id="swap-frames" class="frame-swap" data-label="swapFrames" disabled>
+                    <span aria-hidden="true">⇄</span>
+                  </button>
+                  <div class="frame-slot" data-frame="last">
+                    <button type="button" class="frame-trigger" data-frame-trigger>
+                      <span class="frame-thumb" aria-hidden="true"></span>
+                      <span class="frame-role" data-text="lastFrame">Last frame</span>
+                    </button>
+                    <button type="button" class="frame-menu-trigger" data-frame-menu popovertarget="last-frame-sources" aria-haspopup="menu">
+                      <span aria-hidden="true">···</span>
+                    </button>
+                    <div id="last-frame-sources" class="composer-menu" popover="auto" role="menu" data-label="lastFrame">
+                      <button type="button" role="menuitem" data-frame-local data-text="fromDevice">From device</button>
+                      <button type="button" role="menuitem" data-frame-library data-text="fromLibrary">From assets</button>
+                      <button type="button" role="menuitem" data-frame-subjects data-text="fromSubjects">From subjects</button>
+                      <button type="button" role="menuitem" data-frame-remove hidden data-text="remove">Remove</button>
+                    </div>
+                    <input type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" hidden />
+                  </div>
+                </div>
+                <button id="remake-strategy-trigger" class="option-trigger remake-strategy" type="button" popovertarget="remake-strategy-options" aria-haspopup="menu" hidden>
+                  <span id="remake-strategy-value"></span><span class="chevron" aria-hidden="true"></span>
+                </button>
+                <div id="remake-strategy-options" class="composer-menu" popover="auto" role="menu" data-label="remakeStrategyLabel">
+                  <button type="button" role="menuitemradio" aria-checked="true" data-remake-strategy="creative" data-text="remakeCreative">Creative remake</button>
+                  <button type="button" role="menuitemradio" aria-checked="false" data-remake-strategy="replace-subject" data-text="remakeSubject">Replace subject</button>
+                  <button type="button" role="menuitemradio" aria-checked="false" data-remake-strategy="imitate-motion" data-text="remakeMotion">Imitate motion</button>
+                </div>
+                <label class="sr-only" for="prompt" data-text="prompt">Prompt</label>
+                <textarea id="prompt" rows="2" maxlength="8000" required></textarea>
+                <div id="prompt-reference-targets"></div>
+              </div>
+              <div class="composer-controls">
+                <div class="composer-options-shell">
+                  <button id="composer-scroll-prev" class="composer-scroll" type="button" aria-controls="composer-options" data-label="previousParameters" hidden>
+                    <span class="chevron" aria-hidden="true"></span>
+                  </button>
+                  <div id="composer-options" class="options" role="group" data-label="generationSettings">
+                  <button id="mode-trigger" class="option-trigger mode-trigger" type="button" popovertarget="mode-options" aria-haspopup="menu">
+                    <span id="mode-icon" class="media-option-icon" data-glyph="image-model" aria-hidden="true"></span>
+                    <span id="mode-value"></span><span class="chevron" aria-hidden="true"></span>
+                  </button>
+                  <div id="mode-options" class="composer-menu" popover="auto" role="menu" data-label="generationMode">
+                    <button type="button" role="menuitemradio" id="tab-image" aria-checked="true" data-mode="image">
+                      <span class="media-option-icon" data-glyph="image-model" aria-hidden="true"></span>
+                      <span class="mode-choice-name" data-text="image">Image generation</span>
+                    </button>
+                    <button type="button" role="menuitemradio" id="tab-video" aria-checked="false" data-mode="video">
+                      <span class="media-option-icon" data-glyph="video-model" aria-hidden="true"></span>
+                      <span class="mode-choice-name" data-text="video">Video generation</span>
+                    </button>
+                  </div>
+                  <span id="model-name" class="model-detail"></span>
+                  <button id="model-trigger" class="option-trigger" type="button" popovertarget="model-options" aria-haspopup="menu" hidden>
+                    <span id="model-icon" class="media-option-icon" data-glyph="video-model" aria-hidden="true"></span>
+                    <span id="model-value">MiniMax H3 Lite</span><span class="chevron" aria-hidden="true"></span>
+                  </button>
+                  <div id="model-options" class="composer-menu" popover="auto" role="menu" aria-label="Video model">
+                    <button type="button" role="menuitemradio" aria-checked="true" data-model="MiniMax-H3-Lite"
+                      aria-labelledby="model-lite-name" aria-describedby="model-lite-detail">
+                      <span class="media-option-icon" data-glyph="video-model" aria-hidden="true"></span>
+                      <span class="model-choice-copy">
+                        <span id="model-lite-name" class="model-choice-name">MiniMax H3 Lite</span>
+                        <span id="model-lite-detail" class="model-choice-detail" data-text="modelLiteDetail">Lightweight · 480P or 768P · 4–15 s</span>
+                      </span>
+                    </button>
+                    <button type="button" role="menuitemradio" aria-checked="false" data-model="MiniMax-H3-Highspeed"
+                      aria-labelledby="model-highspeed-name" aria-describedby="model-highspeed-detail">
+                      <span class="media-option-icon" data-glyph="video-model" aria-hidden="true"></span>
+                      <span class="model-choice-copy">
+                        <span id="model-highspeed-name" class="model-choice-name">MiniMax H3 Highspeed</span>
+                        <span id="model-highspeed-detail" class="model-choice-detail" data-text="modelHighspeedDetail">Speed-focused · 480P or 768P · 4–15 s</span>
+                      </span>
+                    </button>
+                    <button type="button" role="menuitemradio" aria-checked="false" data-model="MiniMax-H3-Image" data-image-model hidden
+                      aria-labelledby="model-image-name" aria-describedby="model-image-detail">
+                      <span class="media-option-icon" data-glyph="image-model" aria-hidden="true"></span>
+                      <span class="model-choice-copy">
+                        <span id="model-image-name" class="model-choice-name">MiniMax H3 Image</span>
+                        <span id="model-image-detail" class="model-choice-detail" data-text="modelImageDetail">Standard · 1K, 2K or 4K</span>
+                      </span>
+                    </button>
+                    <button type="button" role="menuitemradio" aria-checked="false" data-model="MiniMax-H3-Image-Highspeed" data-image-model hidden
+                      aria-labelledby="model-image-highspeed-name" aria-describedby="model-image-highspeed-detail">
+                      <span class="media-option-icon" data-glyph="image-model" aria-hidden="true"></span>
+                      <span class="model-choice-copy">
+                        <span id="model-image-highspeed-name" class="model-choice-name">MiniMax H3 Image Highspeed</span>
+                        <span id="model-image-highspeed-detail" class="model-choice-detail" data-text="modelImageHighspeedDetail">Highspeed · 1K, 2K or 4K</span>
+                      </span>
+                    </button>
+                  </div>
+                  <button id="frame-mode-trigger" class="option-trigger" type="button" popovertarget="frame-mode-options" aria-haspopup="menu" hidden>
+                    <span id="frame-mode-icon" class="media-option-icon" data-glyph="text" aria-hidden="true"></span>
+                    <span id="frame-mode-value"></span><span class="chevron" aria-hidden="true"></span>
+                  </button>
+                  <div id="frame-mode-options" class="composer-menu" popover="auto" role="menu" data-label="videoInput">
+                    <button type="button" role="menuitemradio" aria-checked="true" data-frame-mode="text">
+                      <span class="media-option-icon" data-glyph="text" aria-hidden="true"></span>
+                      <span class="workflow-choice-name" data-text="textVideo">Text to video</span>
+                    </button>
+                    <button type="button" role="menuitemradio" aria-checked="false" data-frame-mode="omni" data-workflow hidden>
+                      <span class="media-option-icon" data-glyph="omni" aria-hidden="true"></span>
+                      <span class="workflow-choice-name" data-text="workflowOmni">Full reference</span>
+                    </button>
+                    <button type="button" role="menuitemradio" aria-checked="false" data-frame-mode="frames">
+                      <span class="media-option-icon" data-glyph="frames" aria-hidden="true"></span>
+                      <span class="workflow-choice-name" data-text="referenceFrames">First and last frames</span>
+                    </button>
+                    <button type="button" role="menuitemradio" aria-checked="false" data-frame-mode="multiframe" data-workflow hidden>
+                      <span class="media-option-icon" data-glyph="multiframe" aria-hidden="true"></span>
+                      <span class="workflow-choice-name" data-text="workflowMultiframe">Keyframe sequence</span>
+                    </button>
+                    <button type="button" role="menuitemradio" aria-checked="false" data-frame-mode="edit" data-workflow hidden>
+                      <span class="media-option-icon" data-glyph="edit" aria-hidden="true"></span>
+                      <span class="workflow-choice-name" data-text="workflowEdit">Edit video</span>
+                    </button>
+                    <button type="button" role="menuitemradio" aria-checked="false" data-frame-mode="long" data-workflow hidden>
+                      <span class="media-option-icon" data-glyph="long" aria-hidden="true"></span>
+                      <span class="workflow-choice-name" data-text="workflowLong">Long video</span>
+                    </button>
+                    <button type="button" role="menuitemradio" aria-checked="false" data-frame-mode="remake" data-workflow hidden>
+                      <span class="media-option-icon" data-glyph="remake" aria-hidden="true"></span>
+                      <span class="workflow-choice-name" data-text="workflowRemake">Video remake</span>
+                    </button>
+                  </div>
+                  <button id="video-edit-trigger" class="option-trigger" type="button" aria-haspopup="dialog" aria-controls="video-edit-region" data-text="videoEditAdvanced" hidden disabled>Advanced editing</button>
+                  <button id="ratio-trigger" class="option-trigger" type="button" popovertarget="ratio-options" aria-haspopup="menu">
+                    <span id="ratio-value"></span><span class="chevron" aria-hidden="true"></span>
+                  </button>
+                  <div id="ratio-options" class="composer-menu" popover="auto" role="menu" data-label="ratio" data-menu-layout="choices">
+                    <div id="ratio-group" role="group" aria-labelledby="ratio-heading">
+                      <p id="ratio-heading" class="menu-group-label" data-text="ratio">Aspect ratio</p>
+                      <div class="menu-choices ratios">
+                        <button type="button" role="menuitemradio" aria-checked="false" data-ratio="auto" data-image-ratio data-text="automaticRatio" hidden>Auto</button>
+                        <button type="button" role="menuitemradio" aria-checked="false" data-ratio="21:9" data-extended-ratio hidden>21:9</button>
+                        <button type="button" role="menuitemradio" aria-checked="false" data-ratio="16:9">16:9</button>
+                        <button type="button" role="menuitemradio" aria-checked="false" data-ratio="3:2" data-image-ratio hidden>3:2</button>
+                        <button type="button" role="menuitemradio" aria-checked="false" data-ratio="4:3" data-extended-ratio hidden>4:3</button>
+                        <button type="button" role="menuitemradio" aria-checked="true" data-ratio="1:1">1:1</button>
+                        <button type="button" role="menuitemradio" aria-checked="false" data-ratio="3:4" data-extended-ratio hidden>3:4</button>
+                        <button type="button" role="menuitemradio" aria-checked="false" data-ratio="2:3" data-image-ratio hidden>2:3</button>
+                        <button type="button" role="menuitemradio" aria-checked="false" data-ratio="9:16">9:16</button>
+                      </div>
+                    </div>
+                    <div id="resolution-group" role="group" aria-labelledby="resolution-heading" hidden>
+                      <p id="resolution-heading" class="menu-group-label" data-text="resolution">Resolution</p>
+                      <div class="menu-choices">
+                        <button type="button" role="menuitemradio" aria-checked="true" data-resolution="480P">480P</button>
+                        <button type="button" role="menuitemradio" aria-checked="false" data-resolution="768P">768P</button>
+                      </div>
+                    </div>
+                    <div id="image-area-options" role="group" aria-labelledby="image-area-heading" hidden>
+                      <p id="image-area-heading" class="menu-group-label" data-text="resolution">Resolution</p>
+                      <div class="menu-choices ratios">
+                        <button type="button" role="menuitemradio" aria-checked="true" data-image-area="1K">1K</button>
+                        <button type="button" role="menuitemradio" aria-checked="false" data-image-area="2K">2K</button>
+                        <button type="button" role="menuitemradio" aria-checked="false" data-image-area="4K">4K</button>
+                      </div>
+                    </div>
+                  </div>
+                  <span id="adaptive-ratio" class="parameter" hidden></span>
+                  <button id="count-trigger" class="option-trigger" type="button" popovertarget="count-options" aria-haspopup="menu" hidden>
+                    <span aria-hidden="true" class="count-icon"></span><span id="count-value"></span><span class="chevron" aria-hidden="true"></span>
+                  </button>
+                  <div id="count-options" class="composer-menu" popover="auto" role="menu" aria-orientation="horizontal" aria-labelledby="output-count-heading" data-menu-layout="choices">
+                    <p id="output-count-heading" class="menu-group-label" data-text="outputCount">Number of outputs</p>
+                    <div id="count-choices" class="menu-choices" role="group">
+                      <button type="button" role="menuitemradio" aria-checked="true" data-count="1">1</button>
+                      <button type="button" role="menuitemradio" aria-checked="false" data-count="2">2</button>
+                      <button type="button" role="menuitemradio" aria-checked="false" data-count="3">3</button>
+                      <button type="button" role="menuitemradio" aria-checked="false" data-count="4">4</button>
+                    </div>
+                  </div>
+                  <button id="duration-trigger" class="option-trigger" type="button" popovertarget="duration-options" aria-haspopup="menu" hidden>
+                    <span id="duration-value"></span><span class="chevron" aria-hidden="true"></span>
+                  </button>
+                  <div id="duration-options" class="composer-menu" popover="auto" role="menu" data-label="duration">
+                    <button type="button" role="menuitemradio" aria-checked="true" data-duration="4" data-text="4s">4 s</button>
+                    <button type="button" role="menuitemradio" aria-checked="false" data-duration="6" data-text="6s">6 s</button>
+                    <button type="button" role="menuitemradio" aria-checked="false" data-duration="8" data-text="8s">8 s</button>
+                  </div>
+                  <output id="keyframe-duration" class="parameter keyframe-duration" hidden></output>
+                  <button id="clear-keyframes" class="option-trigger" type="button" aria-haspopup="dialog"
+                    aria-controls="clear-keyframes-dialog" data-text="clearKeyframes" hidden>Clear frames</button>
+                  <button id="long-duration-trigger" class="option-trigger" type="button" popovertarget="long-duration-options" aria-haspopup="dialog" hidden>
+                    <span id="long-duration-value"></span><span class="chevron" aria-hidden="true"></span>
+                  </button>
+                  <div id="long-duration-options" class="composer-menu" popover="auto" role="dialog" aria-labelledby="long-duration-heading" data-menu-layout="choices">
+                    <h3 id="long-duration-heading" class="long-duration-heading" data-text="longDurationOptions">Choose total duration</h3>
+                    <div class="duration-editor">
+                      <div class="duration-track">
+                        <input id="long-duration-slider" type="range" step="1" value="30" data-label="totalDuration" autofocus />
+                      </div>
+                      <label class="duration-number">
+                        <input id="long-duration" type="number" step="1" value="30" inputmode="numeric" data-label="totalDuration" />
+                        <span data-text="secondsInput">Seconds</span>
+                      </label>
+                    </div>
+                    <div class="menu-choices long-duration-presets" role="radiogroup" data-label="durationPresets">
+                      <button type="button" role="radio" aria-checked="false" data-long-duration="16">16</button>
+                      <button type="button" role="radio" aria-checked="true" data-long-duration="30">30</button>
+                      <button type="button" role="radio" aria-checked="false" data-long-duration="60">60</button>
+                      <button type="button" role="radio" aria-checked="false" data-long-duration="90">90</button>
+                      <button type="button" role="radio" aria-checked="false" data-long-duration="120">120</button>
+                      <button type="button" role="radio" aria-checked="false" data-long-duration="150">150</button>
+                      <button type="button" role="radio" aria-checked="false" data-long-duration="180">180</button>
+                    </div>
+                    <p id="long-duration-plan" class="long-duration-plan" role="status"></p>
+                  </div>
+                  <button id="reference-trigger" class="option-trigger mention-trigger" type="button" popovertarget="reference-options" aria-haspopup="menu" data-label="mentionMedia" hidden>@</button>
+                  <div id="reference-options" class="composer-menu" popover="auto" role="menu" data-label="mentionMedia">
+                    <p id="reference-menu-hint" class="reference-menu-note">Type a name to find a reference.</p>
+                    <div id="reference-categories" class="reference-categories" role="group" data-label="referenceCategories" hidden></div>
+                    <div id="reference-results" data-menu-scroll-area>
+                      <div id="reference-project-subjects" class="reference-menu-group" role="group" data-label="subjects" hidden></div>
+                      <div id="reference-project-assets" class="reference-menu-group" role="group" data-label="assets" hidden></div>
+                      <p id="reference-no-matches" class="reference-menu-note" role="status" data-text="libraryNoMatches" hidden></p>
+                    </div>
+                    <div class="reference-sources" role="group">
+                      <button type="button" role="menuitem" id="reference-local" data-text="attachLocal">Select local media</button>
+                      <button type="button" role="menuitem" id="reference-assets" data-text="fromLibrary">From assets</button>
+                      <button type="button" role="menuitem" id="reference-subjects" data-text="fromSubjects">From subjects</button>
+                    </div>
+                  </div>
+                  <input id="reference-file" type="file" multiple accept="image/jpeg,image/png,image/webp,video/mp4,audio/mpeg,audio/wav,.jpg,.jpeg,.png,.webp,.mp4,.mp3,.wav" hidden />
+                  <input id="keyframe-file" type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" hidden />
+                  </div>
+                  <button id="composer-scroll-next" class="composer-scroll" type="button" aria-controls="composer-options" data-label="nextParameters" hidden>
+                    <span class="chevron" aria-hidden="true"></span>
+                  </button>
+                </div>
+                <button id="generate" class="primary composer-action" type="submit" aria-label="Generate image" disabled>
+                  <span id="generate-label" class="composer-action-label">Generate image</span>
+                  <span class="composer-action-icon submit-icon" aria-hidden="true">↑</span>
+                </button>
+                <button id="composer-key" class="secondary setup-key composer-action" type="button" data-label="configureKey" hidden>
+                  <span class="composer-action-label" data-text="configureKey">Set API Key</span>
+                  <span class="composer-action-icon api-key-icon" aria-hidden="true"></span>
+                </button>
+              </div>
+              <p id="generate-message" role="status" class="message" hidden></p>
+            </form>
+          </div>
+        </footer>
+      </div>
+
+      <section id="library-page" aria-labelledby="library-title" hidden></section>
+
+      <dialog id="remake-template-dialog" class="modal" aria-labelledby="remake-template-title">
+        <header class="dialog-header">
+          <h2 id="remake-template-title" data-text="chooseTemplate">Choose template</h2>
+          <button id="remake-template-cancel" class="secondary compact" type="button" data-text="cancel">Cancel</button>
+        </header>
+        <div class="dialog-content">
+          <div id="remake-template-preview" class="preview-media" hidden></div>
+          <p id="remake-template-message" class="message" role="status" hidden></p>
+          <div class="small-actions remake-template-actions">
+            <button id="remake-template-device" class="secondary" type="button" data-text="attachTemplate" autofocus>Choose local MP4</button>
+            <button id="remake-template-project" class="secondary" type="button" data-text="fromLibrary" hidden>From assets</button>
+          </div>
+        </div>
+      </dialog>
+
+      <dialog id="video-edit-region" class="modal video-edit-dialog" aria-labelledby="video-edit-title" aria-describedby="video-edit-guide">
+        <header class="dialog-header">
+          <h2 id="video-edit-title" data-text="videoEditAdvanced">Advanced editing</h2>
+        </header>
+        <div class="dialog-content">
+          <div id="video-edit-stage" class="video-edit-stage">
+            <video id="video-edit-source" data-label="videoPreview" preload="auto" playsinline></video>
+            <div id="video-edit-overlay" aria-hidden="true">
+              <div id="video-edit-box" hidden></div>
+            </div>
+          </div>
+          <div class="video-edit-playback">
+            <button id="video-edit-play" class="secondary compact" type="button" data-text="videoEditPlay" disabled>Play</button>
+            <input id="video-edit-scrub" type="range" min="0" max="0" step="0.01" value="0" data-label="videoEditScrub" disabled />
+            <span id="video-edit-time"></span>
+          </div>
+          <p id="video-edit-guide" class="hint" data-text="videoEditGuide">Pause on a frame and mark an area. MiniMax receives the time and area as text guidance.</p>
+          <div id="video-edit-fields" class="video-edit-fields" role="group" data-label="videoEditFields">
+            <label><span data-text="videoEditLeft">Left %</span><input id="video-edit-x" type="number" min="0" max="100" step="1" inputmode="numeric" /></label>
+            <label><span data-text="videoEditTop">Top %</span><input id="video-edit-y" type="number" min="0" max="100" step="1" inputmode="numeric" /></label>
+            <label><span data-text="videoEditWidth">Width %</span><input id="video-edit-width" type="number" min="1" max="100" step="1" inputmode="numeric" /></label>
+            <label><span data-text="videoEditHeight">Height %</span><input id="video-edit-height" type="number" min="1" max="100" step="1" inputmode="numeric" /></label>
+          </div>
+          <p id="video-edit-error" class="message" role="status" hidden></p>
+          <div class="small-actions video-edit-actions">
+            <button id="video-edit-clear" class="secondary" type="button" data-text="videoEditClear">Clear mark</button>
+            <button id="video-edit-cancel" class="secondary" type="button" data-text="cancel" autofocus>Cancel</button>
+            <button id="video-edit-apply" class="primary" type="button" data-text="videoEditApply" disabled>Apply mark</button>
+          </div>
+        </div>
+      </dialog>
+
+      <dialog id="clear-keyframes-dialog" class="modal" aria-labelledby="clear-keyframes-title" aria-describedby="clear-keyframes-note">
+        <header class="dialog-header">
+          <h2 id="clear-keyframes-title" data-text="clearKeyframesTitle">Clear this Multi-Frame draft?</h2>
+        </header>
+        <div class="dialog-content">
+          <p id="clear-keyframes-note" class="hint" data-text="clearKeyframesNote">This removes the draft’s frames, transitions, and prompt.</p>
+          <div class="small-actions quote-actions">
+            <button id="clear-keyframes-cancel" class="secondary" type="button" data-text="cancel" autofocus>Cancel</button>
+            <button id="clear-keyframes-confirm" class="secondary text-button danger" type="button" data-text="clearKeyframes">Clear frames</button>
+          </div>
+        </div>
+      </dialog>
+
+      <dialog id="video-quote" class="modal quote-dialog" aria-labelledby="video-quote-title" aria-describedby="video-quote-summary video-quote-breakdown video-quote-billing">
+        <header class="dialog-header">
+          <h2 id="video-quote-title">Confirm generation</h2>
+        </header>
+        <div class="dialog-content">
+          <p id="video-quote-summary" class="quote-summary"></p>
+          <div id="video-quote-breakdown" class="quote-breakdown" hidden></div>
+          <p id="video-quote-billing" class="quote-billing">MiniMax charges per generation request.</p>
+          <div class="small-actions quote-actions">
+            <button id="video-quote-cancel" class="secondary" type="button" data-text="cancel" autofocus>Cancel</button>
+            <button id="video-quote-approve" class="primary" type="button" data-text="confirmGenerate">Confirm and generate</button>
+          </div>
+        </div>
+      </dialog>
+
+      <dialog id="settings" class="modal" aria-labelledby="settings-title">
+        <header class="dialog-header">
+          <h2 id="settings-title" data-text="apiKey">MiniMax API Key</h2>
+          <button id="close-settings" type="button" class="secondary compact" data-text="close">Close</button>
+        </header>
+        <div class="dialog-content">
+          <div id="key-configured" class="field-row" hidden>
+            <span data-text="keyConfigured">Key configured</span>
+            <button id="change-key" type="button" class="secondary compact" data-text="changeKey">Change</button>
+          </div>
+          <form id="key-form" class="key-box" autocomplete="off">
+            <input id="api-key" aria-describedby="key-hint" type="password" autocomplete="off" spellcheck="false" data-label="apiKey" data-placeholder="pasteKey" maxlength="4096" required />
+            <div class="small-actions">
+              <button id="save-key" type="submit" class="primary" data-text="saveKey">Use Key</button>
+              <button id="cancel-key" type="button" class="secondary" data-text="cancel" hidden>Cancel</button>
+            </div>
+          </form>
+          <p id="key-hint" class="hint" data-text="keyHint">For this run only</p>
+          <p id="key-message" role="status" class="message" hidden></p>
+        </div>
+      </dialog>
+
+      <dialog id="library" class="drawer" aria-labelledby="library-title">
+        <div id="library-content">
+          <header class="dialog-header">
+            <h2 id="library-title" tabindex="-1">Assets &amp; subjects</h2>
+            <button id="close-library" type="button" class="secondary compact" data-text="close">Close</button>
+          </header>
+          <div id="library-controls" class="library-controls">
+            <nav id="library-tabs" class="tabs" role="tablist" data-label="library">
+              <button id="tab-assets" type="button" role="tab" aria-selected="true" aria-controls="library-body" data-library-tab="assets" data-text="assets">Assets</button>
+              <button id="tab-subjects" type="button" role="tab" aria-selected="false" aria-controls="library-body" tabindex="-1" data-library-tab="subjects" data-text="subjects">Subjects</button>
+            </nav>
+            <button id="library-primary" type="button" class="secondary compact" hidden></button>
+            <input id="library-search" type="search" autocomplete="off" maxlength="160" hidden />
+          </div>
+          <div id="library-catalog-controls" class="library-catalog-controls" hidden>
+            <div id="library-categories" class="library-categories" role="group" data-label="subjectType"></div>
+            <div class="library-refinements">
+              <button id="library-filter" class="option-trigger" type="button" popovertarget="library-filter-menu" aria-haspopup="menu">
+                <span data-text="catalogFilter">Filter</span><span class="chevron" aria-hidden="true"></span>
+              </button>
+              <div id="library-filter-menu" class="composer-menu" popover="auto" role="menu" data-label="catalogFilter"></div>
+              <button id="library-period" class="option-trigger" type="button" popovertarget="library-period-menu" aria-haspopup="menu">
+                <span data-text="catalogTime">Time</span><span class="chevron" aria-hidden="true"></span>
+              </button>
+              <div id="library-period-menu" class="composer-menu" popover="auto" role="menu" data-label="catalogTime"></div>
+              <button id="library-sort" class="option-trigger" type="button" popovertarget="library-sort-menu" aria-haspopup="menu">
+                <span data-text="catalogSort">Sort</span><span class="chevron" aria-hidden="true"></span>
+              </button>
+              <div id="library-sort-menu" class="composer-menu" popover="auto" role="menu" data-label="catalogSort"></div>
+            </div>
+          </div>
+          <p id="library-message" class="drawer-message message" role="status" hidden></p>
+          <section id="library-body" class="drawer-body" role="tabpanel" aria-labelledby="tab-assets"></section>
+        </div>
+      </dialog>
+
+      <dialog id="preview" class="modal preview-dialog" aria-labelledby="preview-title" hidden>
+        <header class="dialog-header">
+          <h2 id="preview-title" tabindex="-1"></h2>
+          <button type="button" id="close-preview" class="secondary compact" data-text="close">Close</button>
+        </header>
+        <div id="preview-media" class="preview-media"></div>
+        <div id="preview-pages" class="preview-pages" hidden>
+          <button type="button" id="preview-previous" class="secondary compact" data-label="previousPreview"><span aria-hidden="true">←</span></button>
+          <output id="preview-position" aria-live="polite"></output>
+          <button type="button" id="preview-next" class="secondary compact" data-label="nextPreview"><span aria-hidden="true">→</span></button>
+        </div>
+        <p id="preview-caption" class="preview-caption" hidden></p>
+      </dialog>
+    </main>
+  </body>
+</html>

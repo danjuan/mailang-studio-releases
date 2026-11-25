@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "local.media-generation",
+  "name": "Media Generation",
+  "version": "0.1.59",
+  "description": "Generate images and videos with MiniMax and archive them in the current session.",
+  "main": "main.js",
+  "contributes": {
+    "views": [
+      {
+        "id": "media-generation",
+        "title": {
+          "en": "Media Generation",
+          "zh-CN": "媒体生成"
+        },
+        "icon": "sparkles",
+        "entry": "views/index.html"
+      }
+    ]
+  },
+  "permissions": ["ui.view", "net.fetch", "session.media", "project.media"],
+  "net": {
+    "domains": ["api.minimax.cn", "cdn.hailuoai.com"]
+  },
+  "activationEvents": ["onStartup"]
+}

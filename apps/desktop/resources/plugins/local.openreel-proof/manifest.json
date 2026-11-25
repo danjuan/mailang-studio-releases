@@ -1,0 +1,423 @@
+{
+  "schemaVersion": 1,
+  "id": "local.openreel-proof",
+  "name": "OpenReel Video",
+  "description": "Edit independent 麦浪 studio conversation drafts with the local OpenReel video editor.",
+  "i18n": {
+    "zh-CN": {
+      "name": "OpenReel 视频剪辑",
+      "description": "在 麦浪 studio 右侧预览和编辑各个会话的本地视频草稿。"
+    }
+  },
+  "version": "0.2.26",
+  "main": "main.js",
+  "license": "MIT",
+  "engines": {
+    "piDesktop": ">=0.23.0-beta.2"
+  },
+  "activationEvents": [
+    "onStartup"
+  ],
+  "permissions": [
+    "ui.view",
+    "fs.read",
+    "fs.write",
+    "agent.tool.register"
+  ],
+  "fs": {
+    "read": {
+      "root": "workspace",
+      "scope": [
+        "**/*.mp4",
+        "**/*.MP4",
+        "video-edits/**",
+        "**/*.mp3",
+        "**/*.MP3",
+        "**/*.wav",
+        "**/*.WAV",
+        "**/*.png",
+        "**/*.PNG",
+        "**/*.jpg",
+        "**/*.JPG",
+        "**/*.jpeg",
+        "**/*.JPEG"
+      ]
+    },
+    "write": {
+      "root": "workspace",
+      "scope": [
+        "video-edits/**"
+      ]
+    }
+  },
+  "contributes": {
+    "views": [
+      {
+        "id": "editor",
+        "title": {
+          "en": "Video Editing",
+          "zh-CN": "视频剪辑"
+        },
+        "icon": "image",
+        "entry": "views/index.html"
+      }
+    ],
+    "agentTools": [
+      {
+        "name": "open_editor",
+        "description": "Open or focus the OpenReel editor for the current local project conversation. Call before editing video. If the conversation has no local project, direct the user to Move to project.",
+        "risk": "low",
+        "schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {}
+        }
+      },
+      {
+        "name": "read_draft",
+        "description": "Read the current conversation's OpenReel draft. Use query (an English term or * for all) with optional offset to discover OpenReel capabilities and input schemas. Use tool and arguments to run a read-only capability. Use preflight and expectedRevision to check the current session and local dependencies before a planned action.",
+        "risk": "low",
+        "schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "query": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "tool": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "arguments": {
+              "type": "object"
+            },
+            "preflight": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "expectedRevision": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      },
+      {
+        "name": "prepare_edit",
+        "description": "Preview exact object deletion, a ripple cut, or replacement of an existing timeline. Read the saved draft for its revision and exact IDs first. If the user approves the preview in the OpenReel panel, the plugin will save one revision. Do not ask a chat question to authorize the edit.",
+        "risk": "low",
+        "schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "expectedRevision",
+            "action",
+            "arguments"
+          ],
+          "properties": {
+            "expectedRevision": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "action": {
+              "type": "string",
+              "enum": [
+                "delete_objects",
+                "ripple_delete_ranges",
+                "apply_timeline_template"
+              ]
+            },
+            "arguments": {
+              "type": "object"
+            }
+          }
+        }
+      },
+      {
+        "name": "start_analysis_job",
+        "description": "Request a non-writing preview from the active OpenReel pane for one saved clip. Choose silence analysis or caption preview. Caption previews upload selected audio only to the configured caption service and stay in the panel. Query the returned analysis job ID to see its status.",
+        "risk": "medium",
+        "schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "expectedRevision",
+            "kind",
+            "clipId"
+          ],
+          "properties": {
+            "expectedRevision": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "silence",
+                "caption"
+              ]
+            },
+            "clipId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "language": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 24
+            },
+            "settings": {
+              "type": "object"
+            }
+          }
+        }
+      },
+      {
+        "name": "analysis_job_status",
+        "description": "Check an OpenReel analysis job. Completed silence jobs return candidate ranges. Completed caption jobs report the cue count; captions stay in the panel.",
+        "risk": "low",
+        "schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "jobId"
+          ],
+          "properties": {
+            "jobId": {
+              "type": "string",
+              "minLength": 36,
+              "maxLength": 36
+            }
+          }
+        }
+      },
+      {
+        "name": "cancel_analysis_job",
+        "description": "Cancel an OpenReel analysis job for this conversation without changing the draft.",
+        "risk": "low",
+        "schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "jobId"
+          ],
+          "properties": {
+            "jobId": {
+              "type": "string",
+              "minLength": 36,
+              "maxLength": 36
+            }
+          }
+        }
+      },
+      {
+        "name": "start_media_job",
+        "description": "Run a long OpenReel task in the current pane and return its job ID. Use auto_caption to append captions to the requested saved clips through the configured service, export_video or export_audio to publish a saved revision, or separate_audio to extract one saved clip. Pass the action's arguments from the draft capability catalog.",
+        "risk": "medium",
+        "schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "expectedRevision",
+            "action",
+            "arguments"
+          ],
+          "properties": {
+            "expectedRevision": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "action": {
+              "type": "string",
+              "enum": [
+                "auto_caption",
+                "export_video",
+                "export_audio",
+                "separate_audio"
+              ]
+            },
+            "arguments": {
+              "type": "object"
+            }
+          }
+        }
+      },
+      {
+        "name": "media_job_status",
+        "description": "Check an OpenReel media job and return its committed revision or export artifact when complete.",
+        "risk": "low",
+        "schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "jobId"
+          ],
+          "properties": {
+            "jobId": {
+              "type": "string",
+              "minLength": 36,
+              "maxLength": 36
+            }
+          }
+        }
+      },
+      {
+        "name": "cancel_media_job",
+        "description": "Cancel the matching OpenReel media job. If it was already committed, the result remains available.",
+        "risk": "low",
+        "schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "jobId"
+          ],
+          "properties": {
+            "jobId": {
+              "type": "string",
+              "minLength": 36,
+              "maxLength": 36
+            }
+          }
+        }
+      },
+      {
+        "name": "apply_edits",
+        "description": "Edit the current conversation's OpenReel draft. Read its revision first. Set edits for import, trim, split or move, or set action and arguments for a capability found through read_draft. Use prepare_edit for object deletion, ripple cuts or replacement of an existing timeline. The auto_caption action sends selected clip audio to the configured subtitle service. Use import_media with a project-relative path or the exact attachment path explicitly included in the current user request. Trim adjusts source endpoints; split and move use absolute timeline seconds. Use separate calls for meaningful stages of a multi-step edit, starting with import. Each call commits one atomic revision. Use the returned revision for the next call.",
+        "risk": "medium",
+        "schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "expectedRevision": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "action": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "arguments": {
+              "type": "object"
+            },
+            "edits": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 32,
+              "items": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "const": "import"
+                      },
+                      "path": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "outPoint": {
+                        "type": "number",
+                        "minimum": 0
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "path"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "const": "trim"
+                      },
+                      "clipId": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "inPoint": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "outPoint": {
+                        "type": "number",
+                        "minimum": 0
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "clipId"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "const": "split"
+                      },
+                      "clipId": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "time": {
+                        "type": "number",
+                        "minimum": 0
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "clipId",
+                      "time"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "const": "move"
+                      },
+                      "clipId": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "startTime": {
+                        "type": "number",
+                        "minimum": 0
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "clipId",
+                      "startTime"
+                    ]
+                  }
+                ]
+              }
+            }
+          },
+          "required": [
+            "expectedRevision"
+          ]
+        }
+      }
+    ]
+  }
+}

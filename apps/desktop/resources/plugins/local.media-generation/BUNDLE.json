@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "id": "local.media-generation",
+  "version": "0.1.59",
+  "source": "vendor/pi-media-generation",
+  "package": {
+    "name": "local.media-generation-0.1.59.piplug",
+    "sha256": "24fcf10454a6a3a46e742605394a66a95ff693a5d58d8b8ca3639b2460ad16bc",
+    "bytes": 475503
+  },
+  "files": {
+    "README.md": "81ce31965674b8bcc2df5dd5cc8de33cba73292af4eb319f3aaf77c9c477d853",
+    "image-workflows.js": "d3113c2c20a0dc9c1226583fd54ed00a58e190ed56f430a52694536084db6d79",
+    "long-video-plan.js": "7bb8e7169be6bc2444d4a4e6f419ae0732b4963ac737ae3a874067fc8a9fd3d6",
+    "main.js": "dc0307e742f238df9a352ec073d5eab42ae44c33eca0fe88c79e7ca7e0f51ede",
+    "manifest.json": "375850e0303ddeebb4f31701257192b482fafbe402ef12bd8d8a2247373cb0f2",
+    "minimax.js": "089eecad27b4fdf342ae5b9af917d3e9bd396c1d4fb59a5abc1b51aee8dd062c",
+    "package.json": "8d15a96a9bcfb9c9d2d393edd36e7af057895732b9210d23a6e176b7337cc300",
+    "reference-frames.js": "6dd50ffb47fe49c3fd2f7a008589b719870710f2c1aa1080feef2b2c088aa491",
+    "reference-mentions.js": "69f7af9d5bf0ec2272c59e569e49ea9945f6c56dddfa03426f08d680a600eee2",
+    "video-workflow-runner.js": "4eb2b9f5844cc98bf9dbe2273d8a96ecff39fae6c3234f7c9537bfa2e2ab50cc",
+    "video-workflows.js": "e8b0473336e3c30f97bcfa21c0f55c5e8f6eb9aaa81c27865d17dcbb73e4e1fd",
+    "views/creative-starter-lighthouse.js": "eec9055ee5347ba896f37123374bf0d2df68517cf15895dce6a2a97973681806",
+    "views/creative-starters.js": "7b24183bb986bc426a2ae2e38d525f796c9a5427e6bd940d911a1cbfa2b98e5f",
+    "views/index.html": "c49acdf36793f85193b550c040c443e9a15829b4243c54abba629bd908438d0f",
+    "views/keyframe-reorder.js": "a2f66631b8763e5edd1767fbe93bbb2188b1b2c3e4d192d69cb6f72b3766ea75",
+    "views/library-catalog.js": "5384d9994dd42eaa1d799a7619b2d2aff333fae49d551d7e080efa158adde883",
+    "views/library.js": "1c3a0eeee58968e124bc6d89713872ef9c72c67c4639eecc0a0321ef15baebc0",
+    "views/local-media-drop.js": "2dbe006c3f9bf94308983b14e10659e2d2eb991c5baaacd159aaa579ec3df475",
+    "views/media-preview.js": "e4641a38d48eb2f8f4cfa2e55f110316141da9e0e29800910657c8fb4dc69b8e",
+    "views/media-ui.js": "12c633c662b39aee603db752af6274587f8aa0153cdb2898ec318caafc55ca1e",
+    "views/panel.css": "6c595bf1320b04b3693c2d34f52d2fa9a4c3cb965c77807e79732cb6d34b12d7",
+    "views/panel.js": "3d2faaff412c09bb788cd878ea9394444e8154d69b583299f8419e99e795152d",
+    "views/prompt-references.js": "6ce3e859d33b375f0b0aa6d93eebc76bec13977676e50ae7b3a3e11455b8fee2",
+    "views/references-ui.js": "f6f3d02ba20231f4d550b54f956b77a6536f2a9b9120cdab36b44c919bbaea34",
+    "views/strings.js": "8ab26f5351dce0563447bdc5fb9433339dcf4b8c99ba4c8c3181cba67db6fe36",
+    "views/video-edit-region.js": "5ef43cc7ba5ba1326ed7b7c67748e192f675a5e2fcffd87594996803cb6ea7c5",
+    "views/video-remake-ui.js": "0b91531e34a1035169f7aad3fffd183e32b40c06282bd901058ac1f7b524fe9d",
+    "views/video-workflow-ui.js": "07ceea61ed1125053855fc53506d59d441b25977b052e9bf127aba8e75c0080e"
+  }
+}

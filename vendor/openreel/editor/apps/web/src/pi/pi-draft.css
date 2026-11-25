@@ -1,0 +1,525 @@
+.pi-draft-app {
+  display: flex;
+  flex-direction: column;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+.pi-draft-editor {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+  container: pi-editor / size;
+}
+
+.pi-draft-workspace {
+  block-size: 100%;
+  inline-size: 100%;
+}
+
+.pi-draft-workspace[data-task-view-open] {
+  /* Hide the whole workspace immediately, including controls with transitions. */
+  opacity: 0;
+  visibility: hidden;
+}
+
+.pi-draft-editor > .pi-task-center {
+  position: absolute;
+  inset: 0;
+}
+
+.pi-task-activity {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  inline-size: 7px;
+  block-size: 7px;
+  border-radius: 50%;
+  background: var(--accent-strong);
+}
+
+.pi-draft-editor .h-screen {
+  height: 100%;
+}
+
+.pi-draft-placeholder {
+  display: grid;
+  height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  align-content: center;
+  justify-items: center;
+  gap: 12px;
+  padding: 24px;
+  text-align: center;
+  overflow: auto;
+}
+
+.pi-draft-placeholder > [role="status"] {
+  color: var(--fg);
+}
+
+.pi-draft-app .pi-editor-notifications {
+  top: 56px;
+  right: 8px;
+  max-width: calc(100vw - 16px);
+  pointer-events: none;
+}
+
+.pi-draft-app .pi-editor-notifications > div {
+  min-width: min(320px, calc(100vw - 16px));
+  max-width: min(420px, calc(100vw - 16px));
+  overflow-wrap: anywhere;
+}
+
+.pi-draft-app .pi-editor-notifications button {
+  pointer-events: auto;
+}
+
+@media (width < 1100px) {
+  .pi-draft-app .pi-editor-notifications {
+    top: 86px;
+  }
+}
+
+.pi-editor-workspace[data-pi-layout] {
+  --pi-workspace-gap: 10px;
+  --pi-preview-min-height: 120px;
+  --pi-timeline-min-height: 122px;
+  --pi-timeline-height: clamp(
+    var(--pi-timeline-min-height),
+    var(--pi-timeline-share),
+    calc(100% - var(--pi-preview-min-height) - var(--pi-workspace-gap))
+  );
+  grid-template-rows:
+    minmax(var(--pi-preview-min-height), 1fr)
+    var(--pi-workspace-gap)
+    var(--pi-timeline-height);
+}
+
+.pi-editor-workspace[data-pi-layout="wide"] {
+  --pi-side-space: calc(100% - 400px);
+  --pi-inspector-width: clamp(280px, var(--pi-inspector-size), calc(var(--pi-side-space) - 320px));
+  --pi-media-width: clamp(320px, var(--pi-media-size), calc(var(--pi-side-space) - var(--pi-inspector-width)));
+  grid-template-columns: var(--pi-media-width) 10px minmax(380px, 1fr) 10px var(--pi-inspector-width);
+  grid-template-areas:
+    "media mh stage ih inspector"
+    "th th th th th"
+    "timeline timeline timeline timeline timeline";
+}
+
+.pi-editor-workspace[data-pi-layout="compact"] {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "stage" "th" "timeline";
+  padding: 6px;
+}
+
+.pi-editor-workspace[data-pi-layout="compact"] [data-pi-column-handle],
+.pi-editor-workspace[data-pi-layout="compact"]:not([data-pi-active-panel="media"]) [data-pi-pane="media"],
+.pi-editor-workspace[data-pi-layout="compact"]:not([data-pi-active-panel="inspector"]) [data-pi-pane="inspector"] {
+  display: none;
+}
+
+.pi-compact-panels {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 4px 6px 0;
+}
+
+.pi-compact-panels > button {
+  min-height: 28px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-1);
+  color: var(--fg-2);
+  font-size: 12px;
+}
+
+.pi-compact-panels > button:hover,
+.pi-compact-panels > button[aria-expanded="true"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.pi-editor-workspace [data-pi-pane] {
+  min-width: 0;
+}
+
+.pi-draft-editor .pi-editor-body > [data-tour="toolbar"] {
+  overflow: auto;
+  scrollbar-width: none;
+}
+
+.pi-draft-editor .pi-editor-body > [data-tour="toolbar"] > * {
+  flex-shrink: 0;
+}
+
+.pi-draft-editor .pi-editor-header {
+  justify-content: space-between;
+  height: 48px;
+  padding-inline: 12px;
+  gap: 8px;
+}
+
+.pi-draft-editor .pi-editor-project {
+  justify-content: flex-start;
+}
+
+.pi-draft-editor .pi-project-switcher {
+  min-width: 0;
+}
+
+.pi-draft-editor .pi-project-switcher > button {
+  max-width: 100%;
+}
+
+.pi-draft-editor .pi-project-switcher-menu {
+  max-width: calc(100vw - 18px);
+  max-height: min(360px, calc(100vh - 60px));
+  overflow-y: auto;
+}
+
+.pi-draft-editor [data-tour="assets"] {
+  container: pi-assets / size;
+}
+
+@container pi-assets (height < 200px) {
+  [data-pi-asset-section-heading] {
+    padding: 4px 8px;
+  }
+
+  [data-pi-asset-section-heading] > div {
+    font-size: 13px;
+  }
+}
+
+[data-pi-assets-nav] {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr)) minmax(48px, 1.25fr);
+  flex-shrink: 0;
+  align-items: center;
+  gap: 3px;
+  padding: 5px;
+  border-bottom: 1px solid var(--border);
+}
+
+[data-pi-assets-nav][data-compact="true"] {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(48px, 1.25fr);
+}
+
+[data-pi-assets-nav] button {
+  width: 100%;
+  height: 32px;
+  min-width: 0;
+  padding-inline: 3px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+[data-pi-assets-nav] button:hover {
+  background-color: var(--bg-2);
+}
+
+[data-pi-assets-nav] button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+[data-pi-assets-nav] [aria-pressed="true"],
+.pi-assets-more[data-current="true"] > button,
+.pi-assets-menu [aria-current="true"] {
+  background-color: var(--selected);
+  color: var(--accent);
+}
+
+.pi-assets-menu {
+  max-height: var(--radix-dropdown-menu-content-available-height);
+  overflow-y: auto;
+}
+
+.pi-draft-editor .pi-media-import-actions {
+  flex-wrap: wrap;
+}
+
+.pi-draft-editor .pi-media-import-actions > * {
+  min-width: max-content;
+}
+
+.pi-draft-editor .pi-timeline-keyframes {
+  width: min(340px, 45%);
+  overflow: auto;
+}
+
+.pi-draft-editor .pi-preview {
+  container: pi-player / inline-size;
+}
+
+.pi-draft-editor [data-pi-preview-area] {
+  align-items: safe center;
+  justify-content: safe center;
+  padding: 8px;
+  transition: none;
+}
+
+.pi-draft-editor [data-pi-preview-frame] {
+  flex: none;
+  transition: none;
+}
+
+.pi-draft-editor [data-pi-preview-controls] {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.pi-draft-editor .pi-preview-time {
+  white-space: nowrap;
+}
+
+.pi-draft-editor .pi-preview[data-pi-preview-compact] .pi-preview-control-row {
+  min-height: 38px;
+  height: auto;
+  justify-content: space-between;
+  padding: 2px 6px;
+  gap: 4px;
+}
+
+.pi-draft-editor .pi-preview[data-pi-preview-compact] .pi-preview-transport {
+  margin: 0;
+  gap: 4px;
+}
+
+.pi-preview-options {
+  padding: 8px;
+  display: grid;
+  gap: 6px;
+}
+
+.pi-preview-options label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.pi-preview-options select {
+  max-width: 55%;
+  padding: 2px 4px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-1);
+  color: var(--fg);
+}
+
+.pi-preview-option-buttons {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px;
+}
+
+.pi-draft-editor .pi-timeline {
+  container: pi-timeline / inline-size;
+}
+
+.pi-draft-editor .pi-timeline[data-pi-compact-tools] .pi-timeline-controls {
+  min-height: 34px;
+  height: auto;
+  flex-wrap: wrap;
+  gap: 3px;
+  padding: 2px 4px;
+}
+
+.pi-draft-editor .pi-timeline[data-pi-compact-tools] :is(.pi-timeline-secondary, .pi-timeline-tool-divider) {
+  display: none;
+}
+
+.pi-draft-editor .pi-timeline[data-pi-compact-tools] .pi-timeline-controls button {
+  padding-inline: 4px;
+  min-width: 22px;
+  min-height: 26px;
+}
+
+body:has(.pi-draft-app) [data-radix-popper-content-wrapper] > * {
+  max-width: calc(100vw - 16px);
+  max-height: min(calc(100vh - 16px), var(--radix-popper-available-height, 100vh));
+  overflow: auto;
+}
+
+body:has(.pi-draft-app) [role="dialog"] {
+  max-width: calc(100vw - 16px);
+  max-height: calc(100vh - 16px);
+}
+
+@container pi-editor (width >= 650px) {
+  .pi-editor-workspace[data-pi-layout="compact"][data-pi-active-panel] {
+    grid-template-columns: minmax(240px, 0.75fr) minmax(0, 1fr);
+  }
+
+  .pi-editor-workspace[data-pi-layout="compact"][data-pi-active-panel="media"] {
+    grid-template-areas: "media stage" "th th" "timeline timeline";
+  }
+
+  .pi-editor-workspace[data-pi-layout="compact"][data-pi-active-panel="inspector"] {
+    grid-template-areas: "stage inspector" "th th" "timeline timeline";
+  }
+
+}
+
+@container pi-editor (width < 650px) {
+  .pi-editor-workspace[data-pi-layout="compact"][data-pi-active-panel] {
+    --pi-timeline-height: clamp(122px, 28%, 202px);
+    grid-template-rows: minmax(120px, 1fr) minmax(122px, 0.85fr) 8px var(--pi-timeline-height);
+    min-height: 384px;
+  }
+
+  .pi-editor-workspace[data-pi-active-panel="media"] {
+    grid-template-areas: "stage" "media" "th" "timeline";
+  }
+
+  .pi-editor-workspace[data-pi-active-panel="inspector"] {
+    grid-template-areas: "stage" "inspector" "th" "timeline";
+  }
+
+  .pi-editor-main {
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  .pi-timeline-body:has(.pi-timeline-keyframes) {
+    flex-direction: column;
+  }
+
+  .pi-draft-editor .pi-timeline-keyframes {
+    width: 100%;
+    max-height: 50%;
+  }
+}
+
+@container pi-editor (height < 430px) {
+  .pi-editor-main {
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  .pi-editor-workspace[data-pi-layout] {
+    min-height: 280px;
+  }
+
+  .pi-preview-header {
+    min-height: 24px;
+    padding-block: 2px;
+  }
+}
+
+@container pi-editor (width < 420px) {
+  .pi-draft-editor .pi-editor-body > [data-tour="toolbar"] {
+    width: 34px;
+    padding-block: 4px;
+  }
+
+  .pi-editor-project > [data-slot="toolcraft-text-input-control"] {
+    display: none;
+  }
+
+  .pi-draft-editor .pi-editor-header {
+    padding-inline: 6px;
+  }
+}
+
+@container pi-player (width < 320px) {
+  .pi-preview[data-pi-preview-compact] .pi-preview-control-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: 0;
+    row-gap: 0;
+  }
+
+  .pi-preview[data-pi-preview-compact] .pi-preview-transport {
+    grid-row: 2;
+  }
+
+  .pi-preview[data-pi-preview-compact] .pi-preview-control-row > button {
+    grid-column: 2;
+    grid-row: 1 / 3;
+  }
+
+  .pi-preview[data-pi-preview-compact] .pi-preview-transport > button {
+    width: 26px;
+    height: 24px;
+  }
+
+  .pi-preview-time > span {
+    font-size: 10px;
+  }
+}
+
+@container pi-timeline (width < 430px) {
+  .pi-track-header,
+  .pi-track-actions {
+    gap: 3px;
+  }
+
+  .pi-track-header {
+    padding-inline: 4px;
+  }
+
+  .pi-track-header .truncate {
+    font-size: 10px;
+  }
+}
+
+@container pi-assets (width < 340px) {
+  .pi-draft-editor .pi-media-import-header {
+    padding: 6px;
+  }
+
+  .pi-draft-editor .pi-media-import-actions {
+    gap: 4px;
+    margin-bottom: 4px;
+  }
+
+  .pi-draft-editor .pi-media-import-actions > * {
+    padding: 4px;
+    font-size: 11px;
+  }
+}
+
+@media (width < 660px) {
+  body:has(.pi-draft-app) .pi-export-dialog {
+    overflow: auto;
+  }
+
+  body:has(.pi-draft-app) .pi-export-preset-browser {
+    flex-direction: column;
+  }
+
+  body:has(.pi-draft-app) .pi-export-preset-list {
+    width: 100%;
+    max-height: min(120px, 36%);
+    padding: 6px;
+  }
+
+  body:has(.pi-draft-app) .pi-export-preset-results {
+    padding: 8px;
+  }
+
+  body:has(.pi-draft-app) .pi-export-dialog :is(.grid-cols-2, .grid-cols-3) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  body:has(.pi-draft-app) .pi-export-footer-controls {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+}

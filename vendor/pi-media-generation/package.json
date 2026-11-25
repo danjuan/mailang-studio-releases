@@ -1,0 +1,15 @@
+{
+  "name": "pi-media-generation",
+  "version": "0.1.59",
+  "private": true,
+  "type": "commonjs",
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "scripts": {
+    "check": "node --check image-workflows.js && node --check reference-mentions.js && node --check long-video-plan.js && node --check views/creative-starter-lighthouse.js && node --check views/creative-starters.js && node --check views/local-media-drop.js && node --check views/media-ui.js && node --check views/media-preview.js && node --check views/library-catalog.js && node --check views/library.js && node --check views/prompt-references.js && node --check views/references-ui.js && node --check views/video-edit-region.js && node --check views/video-remake-ui.js && node --check views/keyframe-reorder.js && node --check views/video-workflow-ui.js && node --check views/panel.js && node --check views/strings.js && node --test test/provider.test.mjs",
+    "test": "node --test test/provider.test.mjs",
+    "test:panel": "node test/panel.e2e.mjs",
+    "pack:plugin": "node scripts/pack.mjs"
+  }
+}

@@ -1,0 +1,356 @@
+import type { AgentMessage } from "@earendil-works/pi-agent-core";
+import { estimateContextTokens, estimateTokens } from "./pi-runtime-estimates.js";
+import {
+  createBranchSummaryMessage,
+  createCompactionSummaryMessage,
+} from "./pi-runtime-messages.js";
+import {
+  buildContextEntries,
+  sessionEntryToContextMessages,
+} from "./session-context.js";
+import type {
+  CompactionPreparation,
+  CompactionSettings,
+  Entry,
+  FileOperations,
+  Result,
+} from "./pi-runtime-types.js";
+import { CompactionError } from "./pi-runtime-types.js";
+
+export type CutPoint = {
+  firstKeptEntryIndex: number;
+  turnStartIndex: number;
+  isSplitTurn: boolean;
+};
+
+function messageFromEntry(entry: Entry): AgentMessage | undefined {
+  switch (entry.type) {
+    case "message":
+      return entry.message;
+    case "branch_summary":
+      return createBranchSummaryMessage(entry.summary, entry.fromId, entry.timestamp) as AgentMessage;
+    case "compaction":
+      return createCompactionSummaryMessage(entry.summary, entry.tokensBefore, entry.timestamp) as AgentMessage;
+    case "custom":
+      return undefined;
+  }
+}
+
+function messageForSummary(entry: Entry): AgentMessage | undefined {
+  return entry.type === "compaction" ? undefined : messageFromEntry(entry);
+}
+
+function findValidCutPoints(entries: Entry[], startIndex: number, endIndex: number): number[] {
+  const cutPoints: number[] = [];
+  for (let index = startIndex; index < endIndex; index++) {
+    const entry = entries[index];
+    if (!entry) continue;
+    if (entry.type === "branch_summary") {
+      cutPoints.push(index);
+      continue;
+    }
+    if (entry.type !== "message") continue;
+    switch (entry.message.role) {
+      case "bashExecution":
+      case "custom":
+      case "branchSummary":
+      case "compactionSummary":
+      case "user":
+      case "assistant":
+        cutPoints.push(index);
+        break;
+    }
+  }
+  return cutPoints;
+}
+
+export function findTurnStartIndex(entries: Entry[], entryIndex: number, startIndex: number): number {
+  for (let index = entryIndex; index >= startIndex; index--) {
+    const entry = entries[index];
+    if (entry?.type === "branch_summary") return index;
+    if (entry?.type !== "message") continue;
+    if (entry.message.role === "user" || entry.message.role === "bashExecution") return index;
+  }
+  return -1;
+}
+
+export function findCutPoint(
+  entries: Entry[],
+  startIndex: number,
+  endIndex: number,
+  keepRecentTokens: number,
+): CutPoint {
+  const cutPoints = findValidCutPoints(entries, startIndex, endIndex);
+  if (cutPoints.length === 0) {
+    return { firstKeptEntryIndex: startIndex, turnStartIndex: -1, isSplitTurn: false };
+  }
+  let accumulatedTokens = 0;
+  let cutIndex = cutPoints[0]!;
+  for (let index = endIndex - 1; index >= startIndex; index--) {
+    const entry = entries[index];
+    if (entry?.type !== "message") continue;
+    accumulatedTokens += estimateTokens(entry.message);
+    if (accumulatedTokens < keepRecentTokens) continue;
+    cutIndex = cutPoints.find((point) => point >= index) ?? cutIndex;
+    break;
+  }
+  while (cutIndex > startIndex) {
+    const previous = entries[cutIndex - 1];
+    if (previous?.type === "compaction" || previous?.type === "message") break;
+    cutIndex--;
+  }
+  const cutEntry = entries[cutIndex];
+  const startsAtUser = cutEntry?.type === "message" && cutEntry.message.role === "user";
+  const turnStartIndex = startsAtUser ? -1 : findTurnStartIndex(entries, cutIndex, startIndex);
+  return {
+    firstKeptEntryIndex: cutIndex,
+    turnStartIndex,
+    isSplitTurn: !startsAtUser && turnStartIndex !== -1,
+  };
+}
+
+function createFileOperations(): FileOperations {
+  return { read: new Set(), written: new Set(), edited: new Set() };
+}
+
+/**
+ * Spellings of `path` kept on a stored `Read` / `Write` / `Edit` call.
+ *
+ * `path` plus `PATH_ARG_ALIASES` from runtime.ts, in that map's order (D273 /
+ * issue #454). This module cannot import the map: runtime.ts already imports
+ * the planner. `normalizeToolParams` folds an alias only when the call
+ * executes, and the runtime defines no `prepareArguments`, so the assistant
+ * message still carries the spelling the model sent.
+ */
+const FILE_OPERATION_PATH_KEYS = [
+  "path",
+  "file_path",
+  "filepath",
+  "filePath",
+  "filename",
+  "fileName",
+  "file",
+] as const;
+
+/**
+ * The path the call actually ran with: the first key that is present wins,
+ * the same precedence `normalizeToolParams` applies, and it only counts when
+ * it is a non-empty string.
+ */
+function fileOperationPath(args: unknown): string | undefined {
+  if (!args || typeof args !== "object") return undefined;
+  const record = args as Record<string, unknown>;
+  const key = FILE_OPERATION_PATH_KEYS.find((name) => record[name] !== undefined);
+  const value = key === undefined ? undefined : record[key];
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+/**
+ * Assistant stop reasons whose tool calls never ran.
+ *
+ * pi-agent-core returns before `executeToolCalls` when a turn stops with
+ * `error` or `aborted`, so those tool results stay empty. A `length` stop is
+ * the opposite guarantee: agent-loop fails every tool call on the message
+ * with an error result ("was not executed: the response hit the output
+ * token limit") without running any of them, because the arguments
+ * themselves may be truncated mid-JSON. `deferred` is the
+ * third reason compaction-tail drops from the rebuilt context
+ * (`DROPPED_STOP_REASONS`); session-context and subagent-context treat the
+ * same three rows as transcript-only. The toolCall blocks stay on the
+ * message anyway, often cut off mid-argument. `messageForSummary` does not
+ * look at stop reason, so `messagesToSummarize` and a split turn's prefix
+ * still contain them. Counting the paths would list files that were never
+ * read or written in the checkpoint's `readFiles` / `modifiedFiles` and in
+ * the summary prompt, and every later compaction copies that list forward.
+ */
+const UNEXECUTED_ASSISTANT_STOP_REASONS: ReadonlySet<string> = new Set([
+  "error",
+  "aborted",
+  "deferred",
+  "length",
+]);
+
+/**
+ * Ids of tool calls whose transcript shows a completed, non-error run.
+ * pi-agent-core stamps every toolResult row with `isError`; calls whose only
+ * row is an error row (a failed call touched nothing) or that has no row at
+ * all (a Stop pressed mid-batch breaks a sequential batch before preparing
+ * the remaining calls, and a parallel batch marks the skipped calls aborted)
+ * never took effect on disk.
+ */
+function executedToolCallIds(messages: AgentMessage[]): Set<string> {
+  const ids = new Set<string>();
+  for (const message of messages) {
+    if (message.role !== "toolResult") continue;
+    const row = message as AgentMessage & { toolCallId?: unknown; isError?: unknown };
+    if (row.isError === true) continue;
+    if (typeof row.toolCallId === "string") ids.add(row.toolCallId);
+  }
+  return ids;
+}
+
+/**
+ * Ids from every toolResult row in `entries`.
+ *
+ * The lookup has to span the whole compactable range, not one message slice:
+ * a split turn's prefix ends at the cut, but the result rows for calls in that
+ * prefix can sit past it in `retainedTail` (a custom/branch boundary between
+ * the call and its result), and the same is true for the last calls of
+ * `messagesToSummarize` when the cut lands mid-turn. Deriving the set from the
+ * full range keeps those successes counted while still dropping calls with no
+ * row or only an error row.
+ */
+/**
+ * The full-range lookup for callers that collect a slice pi already guarded
+ * elsewhere — a retained tail folded back into a shaped preparation, say —
+ * so the same executed-call contract applies outside prepareCompaction.
+ */
+export function executedToolCallIdsInEntries(entries: Entry[]): Set<string> {
+  const messages: AgentMessage[] = [];
+  for (const entry of entries) {
+    if (entry.type === "message") messages.push(entry.message);
+  }
+  return executedToolCallIds(messages);
+}
+
+/** Record one assistant message's Read/Write/Edit paths. Mutates `fileOps`. */
+export function collectMessageFileOperations(
+  message: AgentMessage,
+  fileOps: FileOperations,
+  executedCallIds?: ReadonlySet<string>,
+): void {
+  if (message.role !== "assistant" || !Array.isArray(message.content)) return;
+  if (UNEXECUTED_ASSISTANT_STOP_REASONS.has(message.stopReason)) return;
+  for (const block of message.content) {
+    if (!block || block.type !== "toolCall") continue;
+    if (executedCallIds && !executedCallIds.has(block.id)) continue;
+    const path = fileOperationPath(block.arguments);
+    if (!path) continue;
+    switch (block.name) {
+      case "read": fileOps.read.add(path); break;
+      case "write": fileOps.written.add(path); break;
+      case "edit": fileOps.edited.add(path); break;
+    }
+  }
+}
+
+function collectFileOperations(
+  messages: AgentMessage[],
+  entries: Entry[],
+  previousCompactionIndex: number,
+  executedCallIds: ReadonlySet<string> = executedToolCallIds(messages),
+): FileOperations {
+  const fileOps = createFileOperations();
+  if (previousCompactionIndex >= 0) {
+    const previous = entries[previousCompactionIndex];
+    const details = previous?.type === "compaction" ? previous.details : undefined;
+    if (details && typeof details === "object" && !Array.isArray(details)) {
+      const record = details as Record<string, unknown>;
+      if (Array.isArray(record.readFiles)) {
+        for (const path of record.readFiles) if (typeof path === "string") fileOps.read.add(path);
+      }
+      if (Array.isArray(record.modifiedFiles)) {
+        for (const path of record.modifiedFiles) if (typeof path === "string") fileOps.edited.add(path);
+      }
+    }
+  }
+  for (const message of messages) collectMessageFileOperations(message, fileOps, executedCallIds);
+  return fileOps;
+}
+
+/** Build the desktop-owned preparation used by host-core checkpoint compaction. */
+export function prepareCompaction(
+  pathEntries: Entry[],
+  settings: CompactionSettings,
+): Result<CompactionPreparation | undefined> {
+  try {
+    if (pathEntries.length === 0 || pathEntries.at(-1)?.type === "compaction") {
+      return { ok: true, value: undefined };
+    }
+    let previousCompactionIndex = -1;
+    for (let index = pathEntries.length - 1; index >= 0; index--) {
+      if (pathEntries[index]?.type === "compaction") {
+        previousCompactionIndex = index;
+        break;
+      }
+    }
+
+    const previousCompaction = previousCompactionIndex >= 0
+      ? pathEntries[previousCompactionIndex]
+      : undefined;
+    const previousSummary = previousCompaction?.type === "compaction"
+      ? previousCompaction.summary
+      : undefined;
+    const virtualRetainedEntries: Entry[] = previousCompaction?.type === "compaction"
+      ? previousCompaction.retainedTail.map((message, index) => ({
+          type: "message",
+          id: `${previousCompaction.id}:retained:${index}`,
+          parentId: index === 0
+            ? previousCompaction.id
+            : `${previousCompaction.id}:retained:${index - 1}`,
+          seq: previousCompaction.seq,
+          timestamp: message.timestamp,
+          message,
+        }))
+      : [];
+    const compactableEntries = previousCompactionIndex >= 0
+      ? [...virtualRetainedEntries, ...pathEntries.slice(previousCompactionIndex + 1)]
+      : pathEntries;
+    const cutPoint = findCutPoint(compactableEntries, 0, compactableEntries.length, settings.keepRecentTokens);
+    const historyEnd = cutPoint.isSplitTurn
+      ? cutPoint.turnStartIndex
+      : cutPoint.firstKeptEntryIndex;
+    const messagesToSummarize: AgentMessage[] = [];
+    for (let index = 0; index < historyEnd; index++) {
+      const message = messageForSummary(compactableEntries[index]!);
+      if (message) messagesToSummarize.push(message);
+    }
+    const turnPrefixMessages: AgentMessage[] = [];
+    if (cutPoint.isSplitTurn) {
+      for (let index = cutPoint.turnStartIndex; index < cutPoint.firstKeptEntryIndex; index++) {
+        const message = messageForSummary(compactableEntries[index]!);
+        if (message) turnPrefixMessages.push(message);
+      }
+    }
+    const retainedTail: AgentMessage[] = [];
+    for (let index = cutPoint.firstKeptEntryIndex; index < compactableEntries.length; index++) {
+      const message = messageForSummary(compactableEntries[index]!);
+      if (message) retainedTail.push(message);
+    }
+    // One lookup for both slices: the prefix ends at the cut, so its calls'
+    // result rows can live in `retainedTail`, and the same is true across the
+    // `messagesToSummarize` boundary. A per-slice set would drop those
+    // successes.
+    const executedCallIds = executedToolCallIdsInEntries(compactableEntries);
+    const fileOps = collectFileOperations(
+      messagesToSummarize,
+      pathEntries,
+      previousCompactionIndex,
+      executedCallIds,
+    );
+    if (cutPoint.isSplitTurn) {
+      for (const message of turnPrefixMessages) {
+        collectMessageFileOperations(message, fileOps, executedCallIds);
+      }
+    }
+    const contextMessages = buildContextEntries(pathEntries).flatMap((entry) =>
+      sessionEntryToContextMessages(entry),
+    );
+    return {
+      ok: true,
+      value: {
+        messagesToSummarize,
+        turnPrefixMessages,
+        retainedTail,
+        isSplitTurn: cutPoint.isSplitTurn,
+        tokensBefore: estimateContextTokens(contextMessages).tokens,
+        ...(previousSummary !== undefined ? { previousSummary } : {}),
+        fileOps,
+        settings,
+      },
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { ok: false, error: new CompactionError("summarization_failed", message) };
+  }
+}
